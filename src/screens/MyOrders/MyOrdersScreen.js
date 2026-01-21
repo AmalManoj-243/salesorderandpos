@@ -59,8 +59,8 @@ const formatDate = (dateString) => {
 };
 
 const formatCurrency = (amount) => {
-  if (amount == null) return '0.00';
-  return parseFloat(amount).toFixed(2);
+  if (amount == null) return '0.000';
+  return parseFloat(amount).toFixed(3);
 };
 
 const OrderCard = ({ order, orderType, onPress }) => {

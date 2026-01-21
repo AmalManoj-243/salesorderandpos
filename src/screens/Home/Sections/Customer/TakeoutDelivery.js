@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image, Modal, TextInput, Pressable } from 'react-native';
 import { NavigationHeader } from '@components/Header';
 import { useProductStore } from '@stores/product';
@@ -26,19 +26,19 @@ const TakeoutDelivery = ({ navigation, route }) => {
   const [editingPreset, setEditingPreset] = useState(null);
   const [addName, setAddName] = useState('');
   const [addAmount, setAddAmount] = useState('');
-  
+
   // map cart to items with qty and price
   const items = useMemo(() => cart.map(it => {
     const qty = Number(it.quantity ?? it.qty ?? 1);
     const unitPrice = Number(it.price_unit ?? it.price ?? 0);
     // If price_subtotal_incl or price_subtotal exists, use it directly (already includes qty)
     // Otherwise calculate: unit_price * qty
-    const subtotal = (typeof it.price_subtotal_incl === 'number') 
-      ? it.price_subtotal_incl 
-      : (typeof it.price_subtotal === 'number') 
-        ? it.price_subtotal 
+    const subtotal = (typeof it.price_subtotal_incl === 'number')
+      ? it.price_subtotal_incl
+      : (typeof it.price_subtotal === 'number')
+        ? it.price_subtotal
         : (unitPrice * qty);
-    
+
     return {
       id: String(it.id),
       qty,
@@ -55,7 +55,7 @@ const TakeoutDelivery = ({ navigation, route }) => {
   const finalTotal = Math.max(0, total - discountApplied);
 
   // Persisted discount presets: load local first, fallback to Odoo fetch
-  React.useEffect(() => {
+  useEffect(() => {
     let mounted = true;
     const loadLocal = async () => {
       try {
@@ -163,10 +163,10 @@ const TakeoutDelivery = ({ navigation, route }) => {
       console.log('[Place Order] Creating order with:', { lines, sessionId, posConfigId, partnerId });
 
       // Don't pass preset_id - let Odoo use default or omit if optional
-      const resp = await createPosOrderOdoo({ 
-        partnerId, 
-        lines, 
-        sessionId, 
+      const resp = await createPosOrderOdoo({
+        partnerId,
+        lines,
+        sessionId,
         posConfigId,
         discount: discountApplied,
         amount_total: finalTotal
@@ -175,11 +175,11 @@ const TakeoutDelivery = ({ navigation, route }) => {
       console.log('[Place Order] Response:', resp);
 
       if (resp && resp.error) {
-        Toast.show({ 
-          type: 'error', 
-          text1: 'Order Error', 
-          text2: resp.error.message || JSON.stringify(resp.error) || 'Failed to create order', 
-          position: 'bottom' 
+        Toast.show({
+          type: 'error',
+          text1: 'Order Error',
+          text2: resp.error.message || JSON.stringify(resp.error) || 'Failed to create order',
+          position: 'bottom'
         });
         return;
       }
@@ -190,17 +190,17 @@ const TakeoutDelivery = ({ navigation, route }) => {
         return;
       }
 
-      Toast.show({ 
-        type: 'success', 
-        text1: 'Order Created', 
-        text2: `Order ID: ${orderId}`, 
-        position: 'bottom' 
+      Toast.show({
+        type: 'success',
+        text1: 'Order Created',
+        text2: `Order ID: ${orderId}`,
+        position: 'bottom'
       });
 
       // Navigate to payment or clear cart
-      navigation.navigate('POSPayment', { 
-        orderId, 
-        sessionId, 
+      navigation.navigate('POSPayment', {
+        orderId,
+        sessionId,
         registerId: posConfigId,
         totalAmount: finalTotal,
         products: cart,
@@ -208,11 +208,11 @@ const TakeoutDelivery = ({ navigation, route }) => {
       });
     } catch (error) {
       console.error('[Place Order] Error:', error);
-      Toast.show({ 
-        type: 'error', 
-        text1: 'Order Error', 
-        text2: error?.message || 'Failed to create order', 
-        position: 'bottom' 
+      Toast.show({
+        type: 'error',
+        text1: 'Order Error',
+        text2: error?.message || 'Failed to create order',
+        position: 'bottom'
       });
     } finally {
       setCreatingOrder(false);
@@ -298,14 +298,14 @@ const TakeoutDelivery = ({ navigation, route }) => {
                   <Text style={{ color: '#fff', fontWeight: '800' }}>Manage</Text>
                 </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('POSProducts', { sessionId: route?.params?.sessionId, registerId: route?.params?.registerId })} 
-              style={{ 
-                backgroundColor: '#10b981', 
-                paddingVertical: 12, 
-                paddingHorizontal: 20, 
-                borderRadius: 10, 
-                marginRight: 8, 
+            <TouchableOpacity
+              onPress={() => navigation.navigate('POSProducts', { sessionId: route?.params?.sessionId, registerId: route?.params?.registerId })}
+              style={{
+                backgroundColor: '#10b981',
+                paddingVertical: 12,
+                paddingHorizontal: 20,
+                borderRadius: 10,
+                marginRight: 8,
                 marginBottom: 8,
                 shadowColor: '#10b981',
                 shadowOffset: { width: 0, height: 4 },
@@ -328,8 +328,8 @@ const TakeoutDelivery = ({ navigation, route }) => {
             </TouchableOpacity>
 
             <View style={{ flex: 1, flexDirection: 'column' }}>
-              <TouchableOpacity 
-                onPress={handlePlaceOrder} 
+              <TouchableOpacity
+                onPress={handlePlaceOrder}
                 disabled={creatingOrder}
                 style={{ backgroundColor: '#10b981', paddingVertical: 18, borderRadius: 8, alignItems: 'center', opacity: creatingOrder ? 0.6 : 1 }}>
                 {creatingOrder ? (
@@ -417,7 +417,7 @@ const TakeoutDelivery = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-      
+
       {/* Manage Discounts Modal (triggered from footer Manage button) */}
 
       <Modal visible={manageModalVisible} animationType="slide" transparent={true} onRequestClose={() => setManageModalVisible(false)}>

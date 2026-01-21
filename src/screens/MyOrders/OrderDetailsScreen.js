@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from '@components/containers';
 import { NavigationHeader } from '@components/Header';
 import Text from '@components/Text';
@@ -7,6 +7,8 @@ import { COLORS, FONT_FAMILY } from '@constants/theme';
 import { fetchPosOrderById, fetchOrderLinesByIds } from '@api/services/generalApi';
 import axios from 'axios';
 import ODOO_BASE_URL from '@api/config/odooConfig';
+
+const placeholderImage = 'https://via.placeholder.com/60x60.png?text=No+Image';
 
 const getStateColor = (state) => {
   switch (state) {
@@ -61,8 +63,8 @@ const formatDate = (dateString) => {
 };
 
 const formatCurrency = (amount) => {
-  if (amount == null) return '0.00';
-  return parseFloat(amount).toFixed(2);
+  if (amount == null) return '0.000';
+  return parseFloat(amount).toFixed(3);
 };
 
 const OrderLineItem = ({ item }) => {
@@ -70,9 +72,17 @@ const OrderLineItem = ({ item }) => {
   const qty = item.qty || item.product_uom_qty || 1;
   const price = item.price_unit || 0;
   const subtotal = item.price_subtotal || item.price_subtotal_incl || (qty * price);
+  const imageUrl = item.image_url || null;
 
   return (
     <View style={styles.lineItem}>
+      <View style={styles.imageContainer}>
+        <Image
+          source={{ uri: imageUrl || placeholderImage }}
+          style={styles.productImage}
+          resizeMode="cover"
+        />
+      </View>
       <View style={styles.lineItemLeft}>
         <Text style={styles.productName} numberOfLines={2}>{productName}</Text>
         <Text style={styles.qtyPrice}>{qty} x {formatCurrency(price)}</Text>
@@ -92,6 +102,42 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     loadOrderDetails();
   }, []);
 
+  const fetchProductImages = async (productIds) => {
+    try {
+      if (!productIds || productIds.length === 0) return {};
+
+      const response = await axios.post(`${ODOO_BASE_URL}/web/dataset/call_kw`, {
+        jsonrpc: '2.0',
+        method: 'call',
+        params: {
+          model: 'product.product',
+          method: 'search_read',
+          args: [[['id', 'in', productIds]]],
+          kwargs: {
+            fields: ['id', 'image_128'],
+          },
+        },
+        id: new Date().getTime(),
+      }, { headers: { 'Content-Type': 'application/json' } });
+
+      if (response.data && response.data.result) {
+        const imageMap = {};
+        response.data.result.forEach(product => {
+          if (product.image_128) {
+            imageMap[product.id] = `data:image/png;base64,${product.image_128}`;
+          } else {
+            imageMap[product.id] = `${ODOO_BASE_URL}/web/image?model=product.product&id=${product.id}&field=image_128`;
+          }
+        });
+        return imageMap;
+      }
+      return {};
+    } catch (err) {
+      console.error('Error fetching product images:', err);
+      return {};
+    }
+  };
+
   const loadOrderDetails = async () => {
     try {
       setLoading(true);
@@ -109,7 +155,25 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         if (orderData && orderData.lines && orderData.lines.length > 0) {
           const linesResult = await fetchOrderLinesByIds(orderData.lines);
           if (linesResult.result) {
-            setOrderLines(linesResult.result);
+            const lines = linesResult.result;
+            // Get product IDs from lines
+            const productIds = lines
+              .map(line => Array.isArray(line.product_id) ? line.product_id[0] : null)
+              .filter(id => id != null);
+
+            // Fetch product images
+            const imageMap = await fetchProductImages(productIds);
+
+            // Add image_url to each line
+            const linesWithImages = lines.map(line => {
+              const productId = Array.isArray(line.product_id) ? line.product_id[0] : null;
+              return {
+                ...line,
+                image_url: productId ? imageMap[productId] : null,
+              };
+            });
+
+            setOrderLines(linesWithImages);
           }
         }
       } else {
@@ -129,7 +193,25 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         }, { headers: { 'Content-Type': 'application/json' } });
 
         if (response.data && response.data.result) {
-          setOrderLines(response.data.result);
+          const lines = response.data.result;
+          // Get product IDs from lines
+          const productIds = lines
+            .map(line => Array.isArray(line.product_id) ? line.product_id[0] : null)
+            .filter(id => id != null);
+
+          // Fetch product images
+          const imageMap = await fetchProductImages(productIds);
+
+          // Add image_url to each line
+          const linesWithImages = lines.map(line => {
+            const productId = Array.isArray(line.product_id) ? line.product_id[0] : null;
+            return {
+              ...line,
+              image_url: productId ? imageMap[productId] : null,
+            };
+          });
+
+          setOrderLines(linesWithImages);
         }
       }
     } catch (err) {
@@ -301,6 +383,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f2f6',
+  },
+  imageContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
   },
   lineItemLeft: {
     flex: 1,

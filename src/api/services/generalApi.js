@@ -1339,26 +1339,36 @@ export const createPosOrderOdoo = async ({ partnerId = null, lines = [], session
       // prefer client-provided subtotal (already discounted) if present
       const subtotal = (typeof l.price_subtotal !== 'undefined' && l.price_subtotal !== null) ? Number(l.price_subtotal) : (price_unit * qty);
       const discount_pct = Number(l.discount || l.discount_percent || 0);
-      return [0, 0, {
+
+      const lineData = {
         product_id: l.product_id || l.id,
         qty,
         price_unit,
         name: l.name || l.product_name || '',
         discount: discount_pct,
         price_subtotal: subtotal,
-        price_subtotal_incl: subtotal,
-      }];
+        price_subtotal_incl: subtotal + (l.tax_amount || 0), // Include tax in subtotal_incl
+      };
+
+      // Add tax_ids if provided
+      if (l.tax_ids && Array.isArray(l.tax_ids) && l.tax_ids.length > 0) {
+        lineData.tax_ids = [[6, 0, l.tax_ids]]; // Odoo many2many format
+      }
+
+      return [0, 0, lineData];
     });
 
-    // Calculate total (allow override when discount applied by client)
-    const calculated_total = lines.reduce((sum, l) => sum + (l.price || l.price_unit || l.list_price || 0) * (l.qty || l.quantity || 1), 0);
+    // Calculate totals
+    const calculated_untaxed = lines.reduce((sum, l) => sum + (l.price || l.price_unit || l.list_price || 0) * (l.qty || l.quantity || 1), 0);
+    const calculated_tax = lines.reduce((sum, l) => sum + (l.tax_amount || 0), 0);
+    const calculated_total = calculated_untaxed + calculated_tax;
     const amount_total = (override_amount_total !== null && override_amount_total !== undefined) ? Number(override_amount_total) : calculated_total;
     const vals = {
       company_id: companyId || 1, // Default to 1 if not provided
       name: orderName || '/', // Use '/' for auto-generated name if not provided
       partner_id: partnerId || false,
       lines: line_items,
-      amount_tax: 0,
+      amount_tax: calculated_tax,
       amount_total,
       amount_paid: 0, // Start with 0, will be updated when payment is made
       amount_return: 0,
@@ -1415,12 +1425,17 @@ export const createSaleOrderOdoo = async ({ partnerId = null, lines = [], compan
     const order_lines = lines.map(l => {
       const qty = Number(l.qty || l.quantity || l.product_uom_qty || 1);
       const price_unit = Number(l.price || l.price_unit || l.list_price || 0);
-      return [0, 0, {
+      const lineData = {
         product_id: l.product_id || l.id || false,
         name: l.name || l.product_name || '',
         product_uom_qty: qty,
         price_unit,
-      }];
+      };
+      // Include tax_ids for sale.order.line (Many2many field in Odoo 19)
+      if (l.tax_ids && Array.isArray(l.tax_ids) && l.tax_ids.length > 0) {
+        lineData.tax_ids = [[6, 0, l.tax_ids]]; // Odoo many2many format: [[6, 0, [ids]]]
+      }
+      return [0, 0, lineData];
     });
 
     // attempt to resolve partner/company from auth store if not provided
@@ -1887,7 +1902,7 @@ export const fetchPosOrderById = async (orderId) => {
         method: 'search_read',
         args: [[['id', '=', orderId]]],
         // include preset_id so clients can read the selected preset on the order
-        kwargs: { fields: ['id','name','state','amount_total','table_id','lines','create_date','user_id','partner_id','preset_id'] },
+        kwargs: { fields: ['id','name','state','amount_total','lines','create_date','user_id','partner_id','preset_id'] },
       },
       id: new Date().getTime(),
     }, { headers: { 'Content-Type': 'application/json' } });
@@ -2046,6 +2061,37 @@ export const fetchFieldSelectionOdoo = async ({ model = '', field = '' } = {}) =
   } catch (error) {
     console.error('fetchFieldSelectionOdoo error:', error);
     return [];
+  }
+};
+
+// Fetch taxes from Odoo account.tax model
+export const fetchTaxesOdoo = async ({ limit = 100, type_tax_use = 'sale' } = {}) => {
+  try {
+    const domain = type_tax_use ? [['type_tax_use', '=', type_tax_use]] : [];
+    const response = await axios.post(`${ODOO_BASE_URL}/web/dataset/call_kw`, {
+      jsonrpc: '2.0',
+      method: 'call',
+      params: {
+        model: 'account.tax',
+        method: 'search_read',
+        args: [domain],
+        kwargs: {
+          fields: ['id', 'name', 'amount', 'amount_type', 'price_include', 'include_base_amount', 'type_tax_use'],
+          limit,
+          order: 'sequence asc, id asc'
+        },
+      },
+      id: new Date().getTime(),
+    }, { headers: { 'Content-Type': 'application/json' } });
+
+    if (response.data && response.data.error) {
+      console.error('Odoo fetchTaxesOdoo error:', response.data.error);
+      return { error: response.data.error };
+    }
+    return { result: response.data.result || [] };
+  } catch (error) {
+    console.error('fetchTaxesOdoo error:', error);
+    return { error };
   }
 };
 

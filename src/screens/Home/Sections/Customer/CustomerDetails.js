@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, Image, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, FlatList, TextInput, Image, StyleSheet, Platform, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearCartFromStorage } from '@api/customer/cartApi';
 import { RoundedScrollContainer, SafeAreaView } from '@components/containers';
@@ -15,29 +15,114 @@ import styles from './styles';
 import { format } from 'date-fns';
 import { useAuthStore } from '@stores/auth';
 import { post } from '@api/services/utils';
-import { fetchCustomerDetailsOdoo, createInvoiceOdoo, createSaleOrderOdoo, confirmSaleOrderOdoo } from '@api/services/generalApi';
+import { fetchCustomerDetailsOdoo, createInvoiceOdoo, createSaleOrderOdoo, confirmSaleOrderOdoo, fetchTaxesOdoo } from '@api/services/generalApi';
 import Toast from 'react-native-toast-message';
 import { useCurrencyStore } from '@stores/currency';
 
 const CustomerDetails = ({ navigation, route }) => {
   const { details } = route?.params || {};
   const currentUser = useAuthStore(state => state.user);
-  const { 
-    getCurrentCart, 
-    setCurrentCustomer, 
+  const {
+    getCurrentCart,
+    setCurrentCustomer,
     loadCustomerCart,
-    removeProduct, 
-    addProduct, 
-    clearProducts 
+    removeProduct,
+    addProduct,
+    clearProducts
   } = useProductStore();
   const currency = useCurrencyStore((state) => state.currency) || '';
+
+  // Tax state
+  const [taxes, setTaxes] = useState([]);
+  const [loadingTaxes, setLoadingTaxes] = useState(false);
+  const [taxModal, setTaxModal] = useState(false);
+  const [selectedProductForTax, setSelectedProductForTax] = useState(null);
+  const [productTaxes, setProductTaxes] = useState({}); // { productId: [taxId1, taxId2] }
   
+  // Load taxes from Odoo on mount
+  useEffect(() => {
+    loadTaxes();
+  }, []);
+
+  const loadTaxes = async () => {
+    setLoadingTaxes(true);
+    try {
+      const result = await fetchTaxesOdoo({ type_tax_use: 'sale' });
+      if (result.result) {
+        setTaxes(result.result);
+      }
+    } catch (e) {
+      console.error('Failed to load taxes:', e);
+    } finally {
+      setLoadingTaxes(false);
+    }
+  };
+
+  // Calculate tax amount for a product based on selected taxes
+  const calculateProductTax = (product) => {
+    const qty = Number(product.quantity || 0);
+    const price = Number(product.price || 0);
+    const lineTotal = qty * price;
+    const appliedTaxIds = productTaxes[product.id] || [];
+
+    let taxAmount = 0;
+    appliedTaxIds.forEach(taxId => {
+      const tax = taxes.find(t => t.id === taxId);
+      if (tax) {
+        if (tax.amount_type === 'percent') {
+          taxAmount += (lineTotal * tax.amount) / 100;
+        } else if (tax.amount_type === 'fixed') {
+          taxAmount += tax.amount * qty;
+        }
+      }
+    });
+    return taxAmount;
+  };
+
+  // Get tax names for display
+  const getProductTaxNames = (productId) => {
+    const appliedTaxIds = productTaxes[productId] || [];
+    if (appliedTaxIds.length === 0) return null;
+    return appliedTaxIds.map(taxId => {
+      const tax = taxes.find(t => t.id === taxId);
+      return tax ? tax.name : '';
+    }).filter(Boolean).join(', ');
+  };
+
+  const openTaxModal = (product) => {
+    setSelectedProductForTax(product);
+    setTaxModal(true);
+  };
+
+  const toggleTaxForProduct = (taxId) => {
+    if (!selectedProductForTax) return;
+    const productId = selectedProductForTax.id;
+    const currentTaxes = productTaxes[productId] || [];
+
+    let newTaxes;
+    if (currentTaxes.includes(taxId)) {
+      newTaxes = currentTaxes.filter(id => id !== taxId);
+    } else {
+      newTaxes = [...currentTaxes, taxId];
+    }
+
+    setProductTaxes(prev => ({
+      ...prev,
+      [productId]: newTaxes
+    }));
+  };
+
+  const closeTaxModal = () => {
+    setTaxModal(false);
+    setSelectedProductForTax(null);
+  };
+
   // Set current customer and load their cart when component mounts
   useEffect(() => {
     if (details?.id || details?._id) {
       const customerId = details.id || details._id;
       setCurrentCustomer(customerId);
-      
+
       // Try to load saved cart from AsyncStorage
       loadCartFromStorage(customerId);
     }
@@ -94,18 +179,18 @@ const CustomerDetails = ({ navigation, route }) => {
     addProduct({ ...product, price: updatedPrice });
   };
 
-  // Calculate amounts
+  // Calculate amounts with dynamic tax based on selected taxes per product
   const calculateAmounts = () => {
     let untaxedAmount = 0;
     let totalQuantity = 0;
+    let taxedAmount = 0;
 
     products.forEach(product => {
       untaxedAmount += product.price * product.quantity;
       totalQuantity += product.quantity;
+      taxedAmount += calculateProductTax(product);
     });
 
-    const taxRate = 0.05;
-    const taxedAmount = untaxedAmount * taxRate;
     const totalAmount = untaxedAmount + taxedAmount;
 
     return { untaxedAmount, taxedAmount, totalAmount, totalQuantity };
@@ -114,47 +199,69 @@ const CustomerDetails = ({ navigation, route }) => {
   const { untaxedAmount, taxedAmount, totalAmount, totalQuantity } = calculateAmounts();
   // console.log("🚀 ~ CustomerDetails ~ totalQuantity:", totalQuantity)
 
-  const renderItem = ({ item }) => (
-    <View style={styles.productContainer}>
-      <View style={styles.row}>
-        <View style={styles.imageWrapper}>
-          <Image source={{ uri: item.imageUrl }} style={styles.productImage} />
-        </View>
-        <View style={styles.productDetails}>
-          <Text style={styles.productName}>{item?.name?.trim()}</Text>
-          <View style={styles.quantityContainer}>
-            <TouchableOpacity onPress={() => handleQuantityChange(item.id, item.quantity - 1)}>
-              <AntDesign name="minus" size={20} color="black" />
-            </TouchableOpacity>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Quantity"
-              value={item.quantity.toString()}
-              onChangeText={(text) => handleQuantityChange(item.id, text)}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity onPress={() => handleQuantityChange(item.id, item.quantity + 1)}>
-              <AntDesign name="plus" size={20} color="black" />
+  const renderItem = ({ item }) => {
+    const taxNames = getProductTaxNames(item.id);
+    const lineTax = calculateProductTax(item);
+    return (
+      <View style={styles.productContainer}>
+        <View style={styles.row}>
+          <View style={styles.imageWrapper}>
+            <Image source={{ uri: item.imageUrl }} style={styles.productImage} />
+          </View>
+          <View style={styles.productDetails}>
+            <Text style={styles.productName}>{item?.name?.trim()}</Text>
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity onPress={() => handleQuantityChange(item.id, item.quantity - 1)}>
+                <AntDesign name="minus" size={20} color="black" />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Quantity"
+                value={item.quantity.toString()}
+                onChangeText={(text) => handleQuantityChange(item.id, text)}
+                keyboardType="numeric"
+              />
+              <TouchableOpacity onPress={() => handleQuantityChange(item.id, item.quantity + 1)}>
+                <AntDesign name="plus" size={20} color="black" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.priceContainer}>
+              <Text style={styles.label}>Price</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Price"
+                value={item.price.toString()}
+                onChangeText={(text) => handlePriceChange(item.id, text)}
+                keyboardType="numeric"
+              />
+              <Text style={styles.aedLabel}>{currency}</Text>
+            </View>
+            {taxNames && (
+              <Text style={{ fontSize: 12, color: COLORS.primaryThemeColor || '#1316c5', marginTop: 4, fontStyle: 'italic' }}>
+                Tax: {taxNames} (+{lineTax.toFixed(3)})
+              </Text>
+            )}
+            <TouchableOpacity
+              onPress={() => openTaxModal(item)}
+              style={{
+                backgroundColor: '#ff9800',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 6,
+                marginTop: 8,
+                alignSelf: 'flex-start'
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>+ Tax</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.priceContainer}>
-            <Text style={styles.label}>Price</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Price"
-              value={item.price.toString()}
-              onChangeText={(text) => handlePriceChange(item.id, text)}
-              keyboardType="numeric"
-            />
-            <Text style={styles.aedLabel}>{currency}</Text>
-          </View>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
+            <Ionicons name="trash-outline" size={24} color={COLORS.black} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
-          <Ionicons name="trash-outline" size={24} color={COLORS.black} />
-        </TouchableOpacity>
       </View>
-    </View>
-  );
+    );
+  };
 
   const placeOrder = async () => {
     try {
@@ -274,12 +381,14 @@ const CustomerDetails = ({ navigation, route }) => {
       // Skip backend /createQuotation and directly create sale.order in Odoo for reliability
       console.log('Skipping /createQuotation and creating sale.order directly in Odoo');
       try {
-        const saleLines = orderItems.map(item => ({
-          product_id: item.product_odoo_id || item.product_id || item.product_id,
-          name: item.product_name || item.product_name,
-          quantity: Number(item.qty || item.product_uom_qty || item.qty || 1),
-          price_unit: Number(item.price_unit || item.unit_price || item.unit_price || 0),
+        const saleLines = products.map(product => ({
+          product_id: product.id,
+          name: product.name || product.product_name || '',
+          quantity: Number(product.quantity || 1),
+          price_unit: Number(product.price || 0),
+          tax_ids: productTaxes[product.id] || [], // Include selected tax IDs for Odoo
         }));
+        console.log('Sale lines with taxes:', saleLines);
         const saleResp = await createSaleOrderOdoo({ partnerId: customerId, lines: saleLines, note: 'Created from mobile app' });
         console.log('createSaleOrderOdoo response:', saleResp);
         const orderId = saleResp?.result || saleResp?.result || saleResp?.id;
@@ -429,15 +538,15 @@ const CustomerDetails = ({ navigation, route }) => {
                 <View style={styles.totalPriceContainer}>
                   <View style={styles.footerRow}>
                     <Text style={styles.footerLabel}>Untaxed Amount:</Text>
-                    <Text style={styles.footerLabel}>{untaxedAmount.toFixed(2)} {currency}</Text>
+                    <Text style={styles.footerLabel}>{untaxedAmount.toFixed(3)} {currency}</Text>
                   </View>
                   <View style={styles.footerRow}>
                     <Text style={styles.footerLabel}>Taxed Amount:</Text>
-                    <Text style={styles.footerLabel}>{taxedAmount.toFixed(2)} {currency}</Text>
+                    <Text style={styles.footerLabel}>{taxedAmount.toFixed(3)} {currency}</Text>
                   </View>
                   <View style={styles.footerRow}>
                     <Text style={styles.totalPriceLabel}>Total Amount:</Text>
-                    <Text style={styles.totalPriceLabel}>{totalAmount.toFixed(2)} {currency}</Text>
+                    <Text style={styles.totalPriceLabel}>{totalAmount.toFixed(3)} {currency}</Text>
                   </View>
                 </View>
                 <View style={{ marginTop: 12 }}>
@@ -474,6 +583,74 @@ const CustomerDetails = ({ navigation, route }) => {
           </View>
         )}
       </RoundedScrollContainer>
+
+      {/* Tax Selection Modal */}
+      <Modal visible={taxModal} animationType="slide" transparent={true} onRequestClose={closeTaxModal}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', padding: 20, borderRadius: 12, width: '85%', maxHeight: '80%' }}>
+            <Text style={{ fontWeight: '700', fontSize: 18, marginBottom: 16, color: '#111' }}>
+              Select Tax for {selectedProductForTax?.name || 'Product'}
+            </Text>
+            {loadingTaxes ? (
+              <ActivityIndicator size="large" color="#444" />
+            ) : taxes.length === 0 ? (
+              <Text style={{ color: '#666', textAlign: 'center', paddingVertical: 20 }}>No taxes available</Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 300 }}>
+                {taxes.map((tax) => {
+                  const isSelected = selectedProductForTax &&
+                    (productTaxes[selectedProductForTax.id] || []).includes(tax.id);
+                  return (
+                    <TouchableOpacity
+                      key={tax.id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 12,
+                        paddingHorizontal: 12,
+                        borderBottomWidth: 1,
+                        borderColor: '#f0f0f0',
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        backgroundColor: isSelected ? '#e0e7ff' : '#f9f9f9',
+                        borderWidth: isSelected ? 1 : 0,
+                        borderColor: isSelected ? (COLORS.primaryThemeColor || '#1316c5') : 'transparent'
+                      }}
+                      onPress={() => toggleTaxForProduct(tax.id)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: isSelected ? (COLORS.primaryThemeColor || '#1316c5') : '#333' }}>
+                          {tax.name}
+                        </Text>
+                        <Text style={{ fontSize: 13, color: isSelected ? (COLORS.primaryThemeColor || '#1316c5') : '#666', marginTop: 2 }}>
+                          {tax.amount_type === 'percent' ? `${tax.amount}%` : `Fixed ${tax.amount}`}
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <Text style={{ fontSize: 20, color: COLORS.primaryThemeColor || '#1316c5', fontWeight: '700' }}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <View style={{ marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={closeTaxModal}
+                style={{
+                  backgroundColor: COLORS.primaryThemeColor || '#10b981',
+                  paddingVertical: 14,
+                  borderRadius: 8,
+                  alignItems: 'center'
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

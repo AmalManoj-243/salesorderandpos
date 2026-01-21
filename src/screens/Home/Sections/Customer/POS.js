@@ -164,9 +164,9 @@ const POS = ({ navigation, route }) => {
                   <View key={p.id} style={styles.lineItem}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.productName}>{p.name || p.product_name}</Text>
-                      <Text style={styles.productMeta}>{(p.quantity || p.qty || 0)} × {(p.price || 0).toFixed(2)}</Text>
+                      <Text style={styles.productMeta}>{(p.quantity || p.qty || 0)} × {(p.price || 0).toFixed(3)}</Text>
                     </View>
-                    <Text style={styles.lineTotal}>{((p.price || 0) * (p.quantity || p.qty || 0)).toFixed(2)}</Text>
+                    <Text style={styles.lineTotal}>{((p.price || 0) * (p.quantity || p.qty || 0)).toFixed(3)}</Text>
                   </View>
                 ))}
               </ScrollView>
@@ -176,7 +176,7 @@ const POS = ({ navigation, route }) => {
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>{computeTotal().toFixed(2)}</Text>
+              <Text style={styles.totalValue}>{computeTotal().toFixed(3)}</Text>
             </View>
 
             <Text style={styles.customerText}>Customer: {customer?.name || '—'}</Text>

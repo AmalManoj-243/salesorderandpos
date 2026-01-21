@@ -71,7 +71,10 @@ const POSPayment = ({ navigation, route }) => {
     sessionId,
     registerName,
     totalAmount,
-    orderId
+    orderId,
+    untaxedTotal: passedUntaxedTotal,
+    taxTotal: passedTaxTotal,
+    grandTotal: passedGrandTotal,
   } = route?.params || {};
   const [customer, setCustomer] = useState(initialCustomer);
   const openCustomerSelector = () => {
@@ -140,12 +143,18 @@ const POSPayment = ({ navigation, route }) => {
   }, []);
 
   const computeTotal = () => {
-    // Use totalAmount from params if available, otherwise compute from products
+    // Use grandTotal from params if available (includes tax), otherwise use totalAmount or compute
+    if (passedGrandTotal !== undefined && passedGrandTotal !== null) {
+      return passedGrandTotal;
+    }
     if (totalAmount !== undefined && totalAmount !== null) {
       return totalAmount;
     }
     return (products || []).reduce((s, p) => s + ((p.price || 0) * (p.quantity || p.qty || 0)), 0);
   };
+
+  const getUntaxedTotal = () => passedUntaxedTotal || computeTotal();
+  const getTaxTotal = () => passedTaxTotal || 0;
   const paidAmount = parseFloat(inputAmount) || 0;
   const total = computeTotal();
   const remaining = total - paidAmount;
@@ -179,12 +188,13 @@ const POSPayment = ({ navigation, route }) => {
     console.log('Customer before payment:', customer);
     console.log('Journal before payment:', selectedJournal);
     try {
-      // Build order lines
+      // Build order lines with tax info
       const lines = products.map(p => ({
         product_id: p.id,
         qty: p.quantity,
         price: p.price,
-        name: p.name || p.product_name || ''
+        name: p.name || p.product_name || '',
+        tax_ids: p.tax_ids || [], // Include tax IDs from cart
       }));
       const partnerId = customer?.id || customer?._id || null;
       // Use companyId from session, user, or default to 1
@@ -393,9 +403,18 @@ const POSPayment = ({ navigation, route }) => {
       <NavigationHeader title="Payment" onBackPress={() => navigation.goBack()} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Journal info removed — mapping remains internal */}
-        {/* Large Amount Display */}
-        <View style={{ alignItems: 'center', marginTop: 32, marginBottom: 12 }}>
-          <Text style={{ fontSize: 60, fontWeight: 'bold', color: '#222' }}>{computeTotal().toFixed(3)} ج.ع.</Text>
+        {/* Amount Display with Tax Breakdown */}
+        <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 12 }}>
+          {getTaxTotal() > 0 && (
+            <View style={{ alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 16, color: '#666' }}>Untaxed: {getUntaxedTotal().toFixed(3)} ج.ع.</Text>
+              <Text style={{ fontSize: 16, color: COLORS.primaryThemeColor || '#1316c5' }}>Tax: {getTaxTotal().toFixed(3)} ج.ع.</Text>
+            </View>
+          )}
+          <Text style={{ fontSize: 54, fontWeight: 'bold', color: '#222' }}>{computeTotal().toFixed(3)} ج.ع.</Text>
+          {getTaxTotal() > 0 && (
+            <Text style={{ fontSize: 14, color: '#888', marginTop: 4 }}>(Including Tax)</Text>
+          )}
         </View>
 
         {/* Payment Mode Cards */}
