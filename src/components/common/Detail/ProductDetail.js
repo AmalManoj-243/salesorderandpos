@@ -113,7 +113,8 @@ const ProductDetail = ({ navigation, route }) => {
             sale_price: od?.price ?? detail.price ?? 0,
             minimal_sales_price: od?.minimal_sales_price ?? null,
             inventory_ledgers: od?.inventory_ledgers || [],
-            total_product_quantity: od?.total_product_quantity ?? 0,
+            total_product_quantity: od?.total_product_quantity ?? detail.qty_available ?? 0,
+            qty_available: od?.total_product_quantity ?? detail.qty_available ?? 0,
             inventory_box_products_details: od?.inventory_box_products_details || [],
             product_code: od?.product_code || detail.code || detail.default_code || null,
             uom: od?.uom || detail.uom || null,
@@ -131,7 +132,8 @@ const ProductDetail = ({ navigation, route }) => {
             sale_price: detail.price ?? 0,
             minimal_sales_price: null,
             inventory_ledgers: [],
-            total_product_quantity: 0,
+            total_product_quantity: detail.qty_available ?? 0,
+            qty_available: detail.qty_available ?? 0,
             uom: detail.uom || null,
           });
         } finally {
@@ -466,6 +468,15 @@ const ProductDetail = ({ navigation, route }) => {
                     </Text>
                     <Text style={{ width: '50%', fontFamily: FONT_FAMILY.urbanistSemiBold, fontSize: 18 }}>
                       {(details.minimal_sales_price ?? 'N/A').toString()} {currency || ''}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 12 }}>
+                    <Text style={{ width: '50%', fontFamily: FONT_FAMILY.urbanistSemiBold, fontSize: 18 }}>
+                      Qty on Hand:
+                    </Text>
+                    <Text style={{ width: '50%', fontFamily: FONT_FAMILY.urbanistSemiBold, fontSize: 18 }}>
+                      {details.total_product_quantity != null ? Number(details.total_product_quantity).toFixed(0) : (details.qty_available != null ? Number(details.qty_available).toFixed(0) : '0')}
                     </Text>
                   </View>
 

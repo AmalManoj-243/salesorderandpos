@@ -43,6 +43,9 @@ const ProductsList = ({ item, onPress, showQuickAdd, onQuickAdd }) => {
                 <View style={styles.textContainer}>
                     <Text style={styles.name}>{truncatedName?.trim()}</Text>
                     <Text style={styles.price}>{priceValue?.toString ? Number(priceValue).toFixed(3) : priceValue} OMR</Text>
+                    <Text style={styles.qtyOnHand}>
+                        Qty: {item.qty_available != null ? Number(item.qty_available).toFixed(0) : '0'}
+                    </Text>
                     <Text style={styles.code}>{item.product_code ?? item.code ?? item.default_code ?? ''}</Text>
                     <Text style={styles.category}>
                         {item?.category?.category_name
@@ -71,7 +74,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         elevation: 4,
         width: 160,
-        height: 210,
+        height: 230,
         padding: 0,
     },
     cardShadow: {
@@ -155,6 +158,13 @@ const styles = StyleSheet.create({
         fontSize: 11,
         textAlign: 'center',
         color: COLORS.orange,
+        marginTop: 2,
+        fontFamily: FONT_FAMILY.urbanistSemiBold,
+    },
+    qtyOnHand: {
+        fontSize: 12,
+        textAlign: 'center',
+        color: '#666',
         marginTop: 2,
         fontFamily: FONT_FAMILY.urbanistSemiBold,
     },

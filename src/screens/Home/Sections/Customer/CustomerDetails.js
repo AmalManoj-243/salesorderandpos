@@ -453,8 +453,10 @@ const CustomerDetails = ({ navigation, route }) => {
         id: p.id,
         name: p.name,
         price: p.price,
-        quantity: p.quantity
+        quantity: p.quantity,
+        tax_ids: productTaxes[p.id] || [], // Include selected tax IDs for Odoo
       }));
+      console.log('Invoice products with taxes:', invoiceProducts);
 
       const invoiceResp = await createInvoiceOdoo({ partnerId: customerId, products: invoiceProducts });
       if (!invoiceResp || invoiceResp.error) {
