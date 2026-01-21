@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "vendingmachine",
+    "slug": "vendingmachine",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      },
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "icon": "./assets/icon.png",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "package": "com.danat.alphalize",
+      "usesCleartextTraffic": true
+    },
+    "plugins": [
+      "./plugins/android-cleartext-traffic.js"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b18e8193-ac81-4210-9e57-27f6945db203"
+      }
+    },
+    "owner": "amal200000"
+  }
+}
