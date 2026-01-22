@@ -127,9 +127,35 @@ const CustomerDetails = ({ navigation, route }) => {
       loadCartFromStorage(customerId);
     }
   }, [details]);
-  
+
   // Get current customer's products
   const products = getCurrentCart();
+
+  // Auto-apply taxes from products when products or taxes change
+  useEffect(() => {
+    if (taxes.length > 0 && products.length > 0) {
+      const initialProductTaxes = {};
+      products.forEach(p => {
+        // taxes_id from Odoo is an array of tax IDs assigned to the product
+        if (p.taxes_id && Array.isArray(p.taxes_id) && p.taxes_id.length > 0) {
+          initialProductTaxes[p.id] = p.taxes_id;
+        }
+      });
+      // Only set if there are taxes to apply and we haven't already set them
+      if (Object.keys(initialProductTaxes).length > 0) {
+        setProductTaxes(prev => {
+          // Merge with existing, but don't override user selections
+          const merged = { ...initialProductTaxes };
+          Object.keys(prev).forEach(key => {
+            if (prev[key] && prev[key].length > 0) {
+              merged[key] = prev[key]; // Keep user selection
+            }
+          });
+          return merged;
+        });
+      }
+    }
+  }, [taxes, products.length]);
   
   // Save cart to AsyncStorage whenever it changes
   useEffect(() => {
@@ -241,6 +267,7 @@ const CustomerDetails = ({ navigation, route }) => {
                 Tax: {taxNames} (+{lineTax.toFixed(3)})
               </Text>
             )}
+{/* Tax button hidden
             <TouchableOpacity
               onPress={() => openTaxModal(item)}
               style={{
@@ -254,6 +281,7 @@ const CustomerDetails = ({ navigation, route }) => {
             >
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>+ Tax</Text>
             </TouchableOpacity>
+*/}
           </View>
           <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
             <Ionicons name="trash-outline" size={24} color={COLORS.black} />

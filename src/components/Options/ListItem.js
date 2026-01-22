@@ -17,7 +17,7 @@ const ListItem = ({ title, image, icon, iconFamily = 'Ionicons', onPress, style 
     height: defaultSize,
     borderRadius: defaultSize / 2
   };
-  const imageSize = isTablet ? { width: 45, height: 45 } : { width: 35, height: 35 };
+  const imageSize = isTablet ? { width: 60, height: 60 } : { width: 50, height: 50 };
   const iconSize = isTablet ? 45 : 35;
   const fontSize = isTablet ? 13 : 11;
 
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f1f1f1',
+    backgroundColor: '#ffffff',
     margin: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

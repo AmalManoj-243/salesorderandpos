@@ -8,11 +8,11 @@ const CarouselPagination = () => {
     const isTablet = screenWidth >= 600;
     
     const data = [
-        { image: require('@assets/images/Home/Banner/sildeshow 1.png') },
-        { image: require('@assets/images/Home/Banner/sildeshow 2.png') },
-        { image: require('@assets/images/Home/Banner/sildeshow 3.png') },
-        { image: require('@assets/images/Home/Banner/sildeshow 4.png') },
-        { image: require('@assets/images/Home/Banner/sildeshow 5.png') }
+        { image: require('@assets/images/Home/Banner/banner_phone_1.jpg') },
+        { image: require('@assets/images/Home/Banner/banner_phone_2.jpg') },
+        { image: require('@assets/images/Home/Banner/banner_phone_3.jpg') },
+        { image: require('@assets/images/Home/Banner/banner_phone_4.jpg') },
+        { image: require('@assets/images/Home/Banner/banner_phone_5.jpg') }
     ];
     
     // Responsive margins and sizes

@@ -334,7 +334,8 @@ export const fetchProductsOdoo = async ({ offset = 0, limit = 50, searchText = "
               "pos_categ_ids",
               "description_sale",  // Alternative name / Arabic name
               "barcode",
-              "product_tmpl_id"
+              "product_tmpl_id",
+              "taxes_id"  // Product sales taxes from Odoo
             ],
             offset,
             limit,
@@ -483,7 +484,7 @@ export const fetchProductDetailsOdoo = async (productId) => {
           kwargs: {
             fields: [
               'id', 'name', 'list_price', 'default_code', 'uom_id', 'image_128',
-              'description_sale', 'categ_id', 'qty_available', 'virtual_available'
+              'description_sale', 'categ_id', 'qty_available', 'virtual_available', 'taxes_id'
             ],
             limit: 1,
           },
@@ -544,6 +545,7 @@ export const fetchProductDetailsOdoo = async (productId) => {
       uom: p.uom_id ? { uom_id: p.uom_id[0], uom_name: p.uom_id[1] } : null,
       categ_id: p.categ_id || null,
       product_description: p.description_sale || null,
+      taxes_id: p.taxes_id || [],  // Product sales taxes from Odoo
     };
   } catch (error) {
     console.error('fetchProductDetailsOdoo error:', error);
@@ -2244,6 +2246,94 @@ export const deleteDiscountOdoo = async ({ id } = {}) => {
   } catch (error) {
     console.error('deleteDiscountOdoo error:', error);
     return { error };
+  }
+};
+
+// Fetch company currency from Odoo (res.company -> currency_id -> res.currency)
+export const fetchCompanyCurrencyOdoo = async () => {
+  try {
+    // First fetch the company to get the currency_id
+    const companyResponse = await axios.post(
+      `${ODOO_BASE_URL}/web/dataset/call_kw`,
+      {
+        jsonrpc: '2.0',
+        method: 'call',
+        params: {
+          model: 'res.company',
+          method: 'search_read',
+          args: [[]],
+          kwargs: {
+            fields: ['id', 'name', 'currency_id'],
+            limit: 1,
+          },
+        },
+      },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    if (companyResponse.data.error) {
+      console.error('Odoo JSON-RPC error (res.company):', companyResponse.data.error);
+      return null;
+    }
+
+    const companies = companyResponse.data.result || [];
+    if (companies.length === 0) {
+      console.warn('[fetchCompanyCurrencyOdoo] No company found');
+      return null;
+    }
+
+    const company = companies[0];
+    const currencyId = Array.isArray(company.currency_id) ? company.currency_id[0] : company.currency_id;
+
+    if (!currencyId) {
+      console.warn('[fetchCompanyCurrencyOdoo] No currency_id on company');
+      return null;
+    }
+
+    // Fetch the currency details
+    const currencyResponse = await axios.post(
+      `${ODOO_BASE_URL}/web/dataset/call_kw`,
+      {
+        jsonrpc: '2.0',
+        method: 'call',
+        params: {
+          model: 'res.currency',
+          method: 'search_read',
+          args: [[['id', '=', currencyId]]],
+          kwargs: {
+            fields: ['id', 'name', 'symbol', 'position', 'decimal_places', 'rounding'],
+            limit: 1,
+          },
+        },
+      },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    if (currencyResponse.data.error) {
+      console.error('Odoo JSON-RPC error (res.currency):', currencyResponse.data.error);
+      return null;
+    }
+
+    const currencies = currencyResponse.data.result || [];
+    if (currencies.length === 0) {
+      console.warn('[fetchCompanyCurrencyOdoo] Currency not found for id:', currencyId);
+      return null;
+    }
+
+    const currency = currencies[0];
+    console.log('[fetchCompanyCurrencyOdoo] Fetched currency:', currency);
+
+    return {
+      id: currency.id,
+      name: currency.name,           // e.g., "OMR", "USD", "AED"
+      symbol: currency.symbol,       // e.g., "ر.ع.", "$", "د.إ"
+      position: currency.position,   // "before" or "after"
+      decimal_places: currency.decimal_places,
+      rounding: currency.rounding,
+    };
+  } catch (error) {
+    console.error('fetchCompanyCurrencyOdoo error:', error);
+    return null;
   }
 };
 

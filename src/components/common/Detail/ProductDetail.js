@@ -335,7 +335,7 @@ const ProductDetail = ({ navigation, route }) => {
       if (Object.keys(fromCustomerDetails).length > 0) {
         navigation.navigate('CustomerDetails', { details: fromCustomerDetails });
       } else {
-        navigation.navigate('CustomerScreen');
+        navigation.navigate('TakeoutDelivery');
       }
     }
   };

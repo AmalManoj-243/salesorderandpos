@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "vendingmachine",
-    "slug": "vendingmachine",
+    "name": "369 ai",
+    "slug": "369-ai",
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -38,7 +38,7 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE"
       ],
-      "package": "com.danat.alphalize",
+      "package": "com.mightyraju.pos369ai",
       "usesCleartextTraffic": true
     },
     "plugins": [
@@ -46,9 +46,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "b18e8193-ac81-4210-9e57-27f6945db203"
+        "projectId": "3f8b087f-82cc-4a32-8bdd-7282f0bc367d"
       }
     },
-    "owner": "amal200000"
+    "owner": "mightyraju"
   }
 }

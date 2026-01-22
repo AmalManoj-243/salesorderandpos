@@ -8,20 +8,30 @@ import { useAuthStore } from '@stores/auth';
 import Constants from 'expo-constants'
 import { getConfig } from '@utils/config';
 import { useCurrencyStore } from '@stores/currency';
+import { fetchCompanyCurrencyOdoo } from '@api/services/generalApi';
 
 const SplashScreen = () => {
     const navigation = useNavigation();
     const [fontsLoaded, setFontsLoaded] = useState(false);
     const setLoggedInUser = useAuthStore(state => state.login);
-    const setCurrency = useCurrencyStore((state) => state.setCurrency); // Function to set currency in currency store
+    const setCurrencyFromOdoo = useCurrencyStore((state) => state.setCurrencyFromOdoo);
 
     useEffect(() => {
-        // Get app name and config based on app name
-        const appName = Constants.expoConfig.name;
-        const config = getConfig(appName);
-
-        // Set currency based on package name from config
-        setCurrency(config.packageName);
+        // Fetch currency from Odoo
+        async function loadCurrency() {
+            try {
+                const currencyData = await fetchCompanyCurrencyOdoo();
+                if (currencyData) {
+                    setCurrencyFromOdoo(currencyData);
+                    console.log('[SplashScreen] Currency set from Odoo:', currencyData.name);
+                } else {
+                    console.log('[SplashScreen] Using default currency (OMR)');
+                }
+            } catch (error) {
+                console.warn('[SplashScreen] Failed to fetch currency from Odoo:', error);
+            }
+        }
+        loadCurrency();
 
         // Load custom fonts
         async function loadFonts() {
