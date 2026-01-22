@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "369 ai",
+    "name": "369 ai sales",
     "slug": "369-ai",
     "version": "1.1.0",
     "orientation": "portrait",
@@ -38,7 +38,7 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE"
       ],
-      "package": "com.mightyraju.pos369ai",
+      "package": "com.mightyraju.pos369ai.v2",
       "usesCleartextTraffic": true
     },
     "plugins": [

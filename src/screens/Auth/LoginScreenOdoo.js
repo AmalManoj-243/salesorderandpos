@@ -1,5 +1,5 @@
 // src/screens/Auth/LoginScreenOdoo.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Keyboard,
@@ -63,6 +63,30 @@ const LoginScreenOdoo = () => {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [credentialsLoaded, setCredentialsLoaded] = useState(false);
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      try {
+        const savedCredentials = await AsyncStorage.getItem('saved_login_credentials');
+        if (savedCredentials) {
+          const parsed = JSON.parse(savedCredentials);
+          setInputs({
+            baseUrl: parsed.baseUrl || "",
+            db: parsed.db || "",
+            username: parsed.username || "",
+            password: parsed.password || "",
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to load saved credentials:', e);
+      } finally {
+        setCredentialsLoaded(true);
+      }
+    };
+    loadSavedCredentials();
+  }, []);
 
   const handleOnchange = (text, input) => {
     setInputs((prevState) => ({ ...prevState, [input]: text }));
@@ -169,6 +193,14 @@ const LoginScreenOdoo = () => {
             console.warn('[Login] Failed to extract currency:', currencyError);
           }
 
+          // Save credentials for auto-fill on next login
+          await AsyncStorage.setItem('saved_login_credentials', JSON.stringify({
+            baseUrl: inputs.baseUrl,
+            db: inputs.db,
+            username: inputs.username,
+            password: inputs.password,
+          }));
+
           setUser(userData);
           navigation.navigate("AppNavigator");
         } else {
@@ -184,6 +216,15 @@ const LoginScreenOdoo = () => {
         if (response && response.success === true && response.data?.length) {
           const userData = response.data[0];
           await AsyncStorage.setItem("userData", JSON.stringify(userData));
+
+          // Save credentials for auto-fill on next login
+          await AsyncStorage.setItem('saved_login_credentials', JSON.stringify({
+            baseUrl: inputs.baseUrl,
+            db: inputs.db,
+            username: inputs.username,
+            password: inputs.password,
+          }));
+
           setUser(userData);
           navigation.navigate("AppNavigator");
         } else {
@@ -241,6 +282,7 @@ const LoginScreenOdoo = () => {
                 onFocus={() => handleError(null, "baseUrl")}
                 label="Server URL"
                 placeholder="Enter Server URL"
+                value={inputs.baseUrl}
                 column={true}
                 login={true}
               />
@@ -252,6 +294,7 @@ const LoginScreenOdoo = () => {
                 iconName="account-outline"
                 label="Username or Email"
                 placeholder="Enter Username or Email"
+                value={inputs.username}
                 error={errors.username}
                 column={true}
                 login={true}
@@ -265,6 +308,7 @@ const LoginScreenOdoo = () => {
                 iconName="lock-outline"
                 label="Password"
                 placeholder="Enter password"
+                value={inputs.password}
                 password
                 column={true}
                 login={true}
