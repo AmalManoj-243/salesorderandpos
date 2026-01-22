@@ -7,9 +7,20 @@ import { createPosOrderOdoo, fetchDiscountsOdoo } from '@api/services/generalApi
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from '@components/containers';
+import { useCurrencyStore } from '@stores/currency';
 
 const TakeoutDelivery = ({ navigation, route }) => {
   const cart = useProductStore((s) => s.getCurrentCart()) || [];
+
+  // Currency from store
+  const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+  const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+  const formatCurrency = (amount) => {
+    const formatted = Number(amount || 0).toFixed(decimalPlaces);
+    return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+  };
   const { addProduct, removeProduct, clearProducts, setProductDiscount } = useProductStore();
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [discountModalVisible, setDiscountModalVisible] = useState(false);
@@ -231,7 +242,7 @@ const TakeoutDelivery = ({ navigation, route }) => {
         />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 4 }}>{item.name}</Text>
-          <Text style={{ fontSize: 14, color: '#666' }}>OMR {item.unit.toFixed(3)} each</Text>
+          <Text style={{ fontSize: 14, color: '#666' }}>{formatCurrency(item.unit)} each</Text>
           {item.discount_percent > 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
               <Text style={{ fontSize:12, color:'#ff5722', fontWeight:'700' }}>{item.discount_percent}% discount applied</Text>
@@ -252,7 +263,7 @@ const TakeoutDelivery = ({ navigation, route }) => {
         </View>
       </View>
       <View style={{ alignItems: 'flex-end', maxWidth: 140 }}>
-        <Text style={{ fontWeight: '800', marginLeft: 12 }}>OMR {(item.subtotal || item.price_subtotal || (item.unit * item.qty)).toFixed(3)}</Text>
+        <Text style={{ fontWeight: '800', marginLeft: 12 }}>{formatCurrency(item.subtotal || item.price_subtotal || (item.unit * item.qty))}</Text>
       </View>
     </TouchableOpacity>
     );
@@ -275,10 +286,10 @@ const TakeoutDelivery = ({ navigation, route }) => {
             <View>
               <Text style={{ fontSize: 18, fontWeight: '800' }}>Total</Text>
               {discountApplied > 0 ? (
-                <Text style={{ fontSize: 12, color: '#666' }}>Discount: OMR {discountApplied.toFixed(3)}</Text>
+                <Text style={{ fontSize: 12, color: '#666' }}>Discount: {formatCurrency(discountApplied)}</Text>
               ) : null}
             </View>
-            <Text style={{ fontSize: 20, fontWeight: '900' }}>OMR {finalTotal.toFixed(3)}</Text>
+            <Text style={{ fontSize: 20, fontWeight: '900' }}>{formatCurrency(finalTotal)}</Text>
           </View>
 
           <View style={{ flexDirection: 'row', justifyContent: 'flex-start', flexWrap: 'wrap', marginBottom: 12 }}>

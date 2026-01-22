@@ -10,9 +10,20 @@ import { showToastMessage } from '@components/Toast';
 import { useState } from 'react';
 import { useAuthStore } from '@stores/auth';
 import { COLORS, FONT_FAMILY } from '@constants/theme';
+import { useCurrencyStore } from '@stores/currency';
 
 const CartScreen = ({ navigation }) => {
   const { getCurrentCart, addProduct, removeProduct, clearProducts } = useProductStore();
+
+  // Currency from store
+  const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+  const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+  const formatCurrency = (amount) => {
+    const formatted = Number(amount || 0).toFixed(decimalPlaces);
+    return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+  };
   const cart = getCurrentCart() || [];
   const [creatingOrder, setCreatingOrder] = useState(false);
   const subtotal = cart.reduce((sum, item) => {
@@ -38,12 +49,12 @@ const CartScreen = ({ navigation }) => {
           <View style={styles.itemText}>
             <Text style={styles.name}>{item.product_name || item.name}</Text>
             {item.product_code ? <Text style={styles.code}>{item.product_code}</Text> : null}
-            <Text style={styles.unitPrice}>{unit.toFixed(3)} OMR</Text>
+            <Text style={styles.unitPrice}>{formatCurrency(unit)}</Text>
           </View>
         </View>
         <View style={styles.cardRight}>
           <Text style={styles.qtyText}>Qty: {item.quantity ?? item.qty ?? 1}</Text>
-          <Text style={styles.lineTotal}>{lineTotal.toFixed(3)} OMR</Text>
+          <Text style={styles.lineTotal}>{formatCurrency(lineTotal)}</Text>
         </View>
       </View>
     );
@@ -64,7 +75,7 @@ const CartScreen = ({ navigation }) => {
           <View style={styles.footer}>
             <View>
               <Text style={styles.subtotalLabel}>Subtotal</Text>
-              <Text style={styles.subtotalValue}>{subtotal.toFixed(3)} OMR</Text>
+              <Text style={styles.subtotalValue}>{formatCurrency(subtotal)}</Text>
             </View>
             <View style={styles.buttonContainer}>
               <TouchableOpacity

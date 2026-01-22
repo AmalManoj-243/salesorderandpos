@@ -21,6 +21,7 @@ import { TextInput } from "@components/common/TextInput";
 import { RoundedScrollContainer, SafeAreaView } from "@components/containers";
 import { useAuthStore } from "@stores/auth";
 import { showToastMessage } from "@components/Toast";
+import { useCurrencyStore } from "@stores/currency";
 // Removed privacy policy checkbox
 
 import ODOO_DEFAULTS, { DEFAULT_ODOO_BASE_URL, DEFAULT_ODOO_DB } from "@api/config/odooConfig";
@@ -44,6 +45,7 @@ const isOdooUrl = (url = "") => {
 const LoginScreenOdoo = () => {
   const navigation = useNavigation();
   const setUser = useAuthStore((state) => state.login);
+  const setCurrencyFromOdoo = useCurrencyStore((state) => state.setCurrencyFromOdoo);
 
   // Removed privacy policy checkbox state
 
@@ -136,6 +138,37 @@ const LoginScreenOdoo = () => {
           // Log the DB name stored in AsyncStorage
           const dbNameStored = await AsyncStorage.getItem('odoo_db');
           console.log('Current Odoo DB in storage:', dbNameStored);
+
+          // Extract and set currency from login response
+          try {
+            const userCompanies = userData.user_companies;
+            const currentCompanyId = userCompanies?.current_company;
+            const companyData = userCompanies?.allowed_companies?.[currentCompanyId];
+            const currencyId = companyData?.currency_id;
+            const currencies = userData.currencies;
+
+            if (currencyId && currencies && currencies[currencyId]) {
+              const currencyData = currencies[currencyId];
+              const decimalPlaces = currencyData.digits?.[1] ?? 2;
+              setCurrencyFromOdoo({
+                name: currencyData.name,
+                symbol: currencyData.symbol,
+                position: currencyData.position,
+                decimal_places: decimalPlaces,
+              });
+              console.log('[Login] Currency set from Odoo:', currencyData.name, currencyData.symbol);
+              // Save currency to AsyncStorage for persistence
+              await AsyncStorage.setItem('odoo_currency', JSON.stringify({
+                name: currencyData.name,
+                symbol: currencyData.symbol,
+                position: currencyData.position,
+                decimal_places: decimalPlaces,
+              }));
+            }
+          } catch (currencyError) {
+            console.warn('[Login] Failed to extract currency:', currencyError);
+          }
+
           setUser(userData);
           navigation.navigate("AppNavigator");
         } else {

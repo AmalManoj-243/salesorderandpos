@@ -18,8 +18,15 @@ const ProductsList = ({ item, onPress, showQuickAdd, onQuickAdd }) => {
     const truncatedName =
         item?.product_name?.length > 35 ? item?.product_name?.substring(0, 60) + '...' : item?.product_name;
 
-    const currency = useCurrencyStore((state) => state.currency);
+    const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+    const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+    const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
     const priceValue = (item?.price ?? item?.list_price ?? 0);
+
+    const formatCurrency = (amount) => {
+        const formatted = Number(amount || 0).toFixed(decimalPlaces);
+        return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+    };
 
     return (
         <TouchableOpacity
@@ -42,7 +49,7 @@ const ProductsList = ({ item, onPress, showQuickAdd, onQuickAdd }) => {
                 />
                 <View style={styles.textContainer}>
                     <Text style={styles.name}>{truncatedName?.trim()}</Text>
-                    <Text style={styles.price}>{priceValue?.toString ? Number(priceValue).toFixed(3) : priceValue} OMR</Text>
+                    <Text style={styles.price}>{formatCurrency(priceValue)}</Text>
                     <Text style={styles.qtyOnHand}>
                         Qty: {item.qty_available != null ? Number(item.qty_available).toFixed(0) : '0'}
                     </Text>

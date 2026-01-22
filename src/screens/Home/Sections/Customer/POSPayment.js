@@ -62,8 +62,19 @@ const fetchAllPaymentMethods = async () => {
   };
 import { useProductStore } from '@stores/product';
 import Toast from 'react-native-toast-message';
+import { useCurrencyStore } from '@stores/currency';
 
 const POSPayment = ({ navigation, route }) => {
+    // Currency from store
+    const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+    const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+    const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+    const formatCurrency = (amount) => {
+      const formatted = Number(amount || 0).toFixed(decimalPlaces);
+      return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+    };
+
     const [invoiceChecked, setInvoiceChecked] = useState(false);
   const {
     products = [],
@@ -404,16 +415,17 @@ const POSPayment = ({ navigation, route }) => {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Journal info removed — mapping remains internal */}
         {/* Amount Display with Tax Breakdown */}
-        <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 12 }}>
+        <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 12, backgroundColor: COLORS.primaryThemeColor, paddingVertical: 20, marginHorizontal: 16, borderRadius: 12 }}>
+          <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600', marginBottom: 8 }}>Total Amount</Text>
           {getTaxTotal() > 0 && (
             <View style={{ alignItems: 'center', marginBottom: 8 }}>
-              <Text style={{ fontSize: 16, color: '#666' }}>Untaxed: {getUntaxedTotal().toFixed(3)} ج.ع.</Text>
-              <Text style={{ fontSize: 16, color: COLORS.primaryThemeColor || '#1316c5' }}>Tax: {getTaxTotal().toFixed(3)} ج.ع.</Text>
+              <Text style={{ fontSize: 16, color: 'rgba(255,255,255,0.8)' }}>Untaxed: {formatCurrency(getUntaxedTotal())}</Text>
+              <Text style={{ fontSize: 16, color: 'rgba(255,255,255,0.9)' }}>Tax: {formatCurrency(getTaxTotal())}</Text>
             </View>
           )}
-          <Text style={{ fontSize: 54, fontWeight: 'bold', color: '#222' }}>{computeTotal().toFixed(3)} ج.ع.</Text>
+          <Text style={{ fontSize: 48, fontWeight: 'bold', color: '#fff' }}>{formatCurrency(computeTotal())}</Text>
           {getTaxTotal() > 0 && (
-            <Text style={{ fontSize: 14, color: '#888', marginTop: 4 }}>(Including Tax)</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>(Including Tax)</Text>
           )}
         </View>
 
@@ -540,18 +552,18 @@ const POSPayment = ({ navigation, route }) => {
             {paymentMode === 'account' ? (
               <>
                 <Text style={{ color: '#2b6cb0', fontSize: 22, marginTop: 6 }}>Amount to be charged to account</Text>
-                <Text style={{ color: '#2b6cb0', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{total.toFixed(3)} ج.ع.</Text>
+                <Text style={{ color: '#2b6cb0', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{formatCurrency(total)}</Text>
               </>
             ) : paymentMode === 'card' ? (
               <>
                 <Text style={{ color: '#2b6cb0', fontSize: 22, marginTop: 6 }}>Amount to be charged to card</Text>
-                <Text style={{ color: '#2b6cb0', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{total.toFixed(3)} ج.ع.</Text>
+                <Text style={{ color: '#2b6cb0', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{formatCurrency(total)}</Text>
               </>
             ) : (
               <>
                 <Text style={{ fontSize: 26, color: '#222', marginBottom: 8, fontWeight: 'bold' }}>Cash</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                  <Text style={{ fontSize: 36, color: '#222', textAlign: 'center', flex: 1, fontWeight: 'bold' }}>{inputAmount || '0.000'} ج.ع.</Text>
+                  <Text style={{ fontSize: 36, color: '#222', textAlign: 'center', flex: 1, fontWeight: 'bold' }}>{formatCurrency(inputAmount || 0)}</Text>
                   {inputAmount ? (
                     <TouchableOpacity onPress={() => setInputAmount('')} style={{ marginLeft: 8 }}>
                       <Text style={{ fontSize: 28, color: '#c00', fontWeight: 'bold' }}>✕</Text>
@@ -561,12 +573,12 @@ const POSPayment = ({ navigation, route }) => {
                 {remaining < 0 ? (
                   <>
                     <Text style={{ color: 'green', fontSize: 22, marginTop: 6 }}>Change</Text>
-                    <Text style={{ color: 'green', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{Math.abs(remaining).toFixed(3)} ج.ع.</Text>
+                    <Text style={{ color: 'green', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{formatCurrency(Math.abs(remaining))}</Text>
                   </>
                 ) : (
                   <>
                     <Text style={{ color: '#c00', fontSize: 22, marginTop: 6 }}>Remaining</Text>
-                    <Text style={{ color: '#c00', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{remaining.toFixed(3)} ج.ع.</Text>
+                    <Text style={{ color: '#c00', fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>{formatCurrency(remaining)}</Text>
                   </>
                 )}
               </>

@@ -6,6 +6,7 @@ import { Button } from '@components/common/Button';
 import { useProductStore } from '@stores/product';
 import { fetchCustomersOdoo, fetchTaxesOdoo } from '@api/services/generalApi';
 import { COLORS } from '@constants/theme';
+import { useCurrencyStore } from '@stores/currency';
 
 const POSCartSummary = ({ navigation, route }) => {
   const {
@@ -18,6 +19,16 @@ const POSCartSummary = ({ navigation, route }) => {
   } = route?.params || {};
   const { getCurrentCart, clearProducts, setCurrentCustomer, addProduct, removeProduct, loadCustomerCart } = useProductStore();
   const errorImage = require('@assets/images/error/error.png');
+
+  // Currency from store
+  const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+  const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+  const formatCurrency = (amount) => {
+    const formatted = Number(amount || 0).toFixed(decimalPlaces);
+    return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+  };
   const products = getCurrentCart();
   const [customerModal, setCustomerModal] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -202,7 +213,7 @@ const POSCartSummary = ({ navigation, route }) => {
             renderItem={({ item }) => {
               const qty = Number(item.quantity || item.qty || 0);
               const price = Number(item.price || 0);
-              const lineTotal = (qty * price).toFixed(3);
+              const lineTotal = formatCurrency(qty * price);
               const increase = () => {
                 addProduct({ ...item, quantity: qty + 1, price });
               };
@@ -242,7 +253,7 @@ const POSCartSummary = ({ navigation, route }) => {
                     />
                   <View style={styles.productInfo}>
                     <Text style={styles.name}>{item.name}</Text>
-                    <Text style={styles.qty}>{qty} × {price.toFixed(3)}</Text>
+                    <Text style={styles.qty}>{qty} × {formatCurrency(price)}</Text>
                     {taxNames && (
                       <Text style={styles.taxInfo}>Tax: {taxNames}</Text>
                     )}
@@ -260,7 +271,7 @@ const POSCartSummary = ({ navigation, route }) => {
                     <View style={styles.lineTotals}>
                       <Text style={styles.lineTotal}>{lineTotal}</Text>
                       {lineTax > 0 && (
-                        <Text style={styles.lineTaxAmount}>+{lineTax.toFixed(3)}</Text>
+                        <Text style={styles.lineTaxAmount}>+{formatCurrency(lineTax)}</Text>
                       )}
                     </View>
 {/* Tax Button hidden
@@ -281,15 +292,15 @@ const POSCartSummary = ({ navigation, route }) => {
         <View style={styles.summarySection}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Untaxed Amount</Text>
-            <Text style={styles.summaryValue}>{computeUntaxedTotal().toFixed(3)}</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(computeUntaxedTotal())}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Tax</Text>
-            <Text style={styles.summaryValue}>{computeTaxTotal().toFixed(3)}</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(computeTaxTotal())}</Text>
           </View>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{computeTotal().toFixed(3)}</Text>
+            <Text style={styles.totalValue}>{formatCurrency(computeTotal())}</Text>
           </View>
         </View>
 

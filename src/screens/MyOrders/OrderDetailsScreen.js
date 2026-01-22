@@ -7,6 +7,7 @@ import { COLORS, FONT_FAMILY } from '@constants/theme';
 import { fetchPosOrderById, fetchOrderLinesByIds } from '@api/services/generalApi';
 import axios from 'axios';
 import ODOO_BASE_URL from '@api/config/odooConfig';
+import { useCurrencyStore } from '@stores/currency';
 
 const placeholderImage = 'https://via.placeholder.com/60x60.png?text=No+Image';
 
@@ -62,10 +63,7 @@ const formatDate = (dateString) => {
   });
 };
 
-const formatCurrency = (amount) => {
-  if (amount == null) return '0.000';
-  return parseFloat(amount).toFixed(3);
-};
+// formatCurrency is now defined inside components using useCurrencyStore
 
 const OrderLineItem = ({ item }) => {
   const productName = Array.isArray(item.product_id) ? item.product_id[1] : item.name || 'Product';
@@ -73,6 +71,16 @@ const OrderLineItem = ({ item }) => {
   const price = item.price_unit || 0;
   const subtotal = item.price_subtotal || item.price_subtotal_incl || (qty * price);
   const imageUrl = item.image_url || null;
+
+  // Currency from store
+  const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+  const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+  const formatCurrency = (amount) => {
+    const formatted = Number(amount || 0).toFixed(decimalPlaces);
+    return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+  };
 
   return (
     <View style={styles.lineItem}>
@@ -97,6 +105,16 @@ const OrderDetailsScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [orderLines, setOrderLines] = useState([]);
   const [error, setError] = useState(null);
+
+  // Currency from store
+  const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+  const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+  const formatCurrency = (amount) => {
+    const formatted = Number(amount || 0).toFixed(decimalPlaces);
+    return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+  };
 
   useEffect(() => {
     loadOrderDetails();

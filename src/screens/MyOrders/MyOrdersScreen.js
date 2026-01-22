@@ -5,6 +5,7 @@ import Text from '@components/Text';
 import { COLORS, FONT_FAMILY } from '@constants/theme';
 import { fetchOrders, fetchSaleOrders } from '@api/services/generalApi';
 import { useFocusEffect } from '@react-navigation/native';
+import { useCurrencyStore } from '@stores/currency';
 
 const getStateColor = (state) => {
   switch (state) {
@@ -58,14 +59,21 @@ const formatDate = (dateString) => {
   });
 };
 
-const formatCurrency = (amount) => {
-  if (amount == null) return '0.000';
-  return parseFloat(amount).toFixed(3);
-};
+// Global formatCurrency is now moved inside components that use useCurrencyStore
 
 const OrderCard = ({ order, orderType, onPress }) => {
   const stateColor = getStateColor(order.state);
   const partnerName = Array.isArray(order.partner_id) ? order.partner_id[1] : null;
+
+  // Currency from store
+  const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+  const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+  const formatCurrency = (amount) => {
+    const formatted = Number(amount || 0).toFixed(decimalPlaces);
+    return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+  };
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
@@ -168,6 +176,10 @@ const MyOrdersScreen = ({ navigation }) => {
   const [orderType, setOrderType] = useState('pos');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Currency from store for search
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+  const formatAmountForSearch = (amount) => Number(amount || 0).toFixed(decimalPlaces);
+
   const loadOrders = async (type = orderType, isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -222,7 +234,7 @@ const MyOrdersScreen = ({ navigation }) => {
       const filtered = allOrders.filter((order) => {
         const orderName = (order.name || '').toLowerCase();
         const partnerName = Array.isArray(order.partner_id) ? order.partner_id[1]?.toLowerCase() : '';
-        const amount = formatCurrency(order.amount_total);
+        const amount = formatAmountForSearch(order.amount_total);
         return (
           orderName.includes(lowerQuery) ||
           partnerName.includes(lowerQuery) ||

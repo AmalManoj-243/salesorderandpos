@@ -1,5 +1,5 @@
-import React, { useEffect, useCallback } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useCallback, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationHeader } from '@components/Header';
 import { ProductsList } from '@components/Product';
 // ⬇️ CHANGE: use Odoo version instead of old backend
@@ -19,6 +19,7 @@ import { useProductStore } from '@stores/product';
 const ProductsScreen = ({ navigation, route }) => {
   const categoryId = route?.params?.categoryId || '';
   const autoFocus = route?.params?.autoFocus || false;
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   useEffect(() => {
     console.log('ProductsScreen: categoryId:', categoryId);
   }, [categoryId]);
@@ -37,7 +38,9 @@ const ProductsScreen = ({ navigation, route }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData({ searchText, categoryId });
+      fetchData({ searchText, categoryId }).then(() => {
+        setInitialLoadDone(true);
+      });
     }, [categoryId, searchText])
   );
 
@@ -107,8 +110,13 @@ const ProductsScreen = ({ navigation, route }) => {
 
   const renderProducts = () => {
     console.log('ProductsScreen: products returned:', data.length);
-    if (data.length === 0 && !loading) {
+    // Only show empty state after initial load is done and no products found
+    if (data.length === 0 && !loading && initialLoadDone) {
       return renderEmptyState();
+    }
+    // Show nothing while initial load is in progress (loader overlay handles it)
+    if (data.length === 0 && !initialLoadDone) {
+      return null;
     }
     return renderContent();
   };

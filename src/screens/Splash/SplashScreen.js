@@ -8,7 +8,6 @@ import { useAuthStore } from '@stores/auth';
 import Constants from 'expo-constants'
 import { getConfig } from '@utils/config';
 import { useCurrencyStore } from '@stores/currency';
-import { fetchCompanyCurrencyOdoo } from '@api/services/generalApi';
 
 const SplashScreen = () => {
     const navigation = useNavigation();
@@ -17,18 +16,19 @@ const SplashScreen = () => {
     const setCurrencyFromOdoo = useCurrencyStore((state) => state.setCurrencyFromOdoo);
 
     useEffect(() => {
-        // Fetch currency from Odoo
+        // Load saved currency from AsyncStorage (set during login)
         async function loadCurrency() {
             try {
-                const currencyData = await fetchCompanyCurrencyOdoo();
-                if (currencyData) {
+                const savedCurrency = await AsyncStorage.getItem('odoo_currency');
+                if (savedCurrency) {
+                    const currencyData = JSON.parse(savedCurrency);
                     setCurrencyFromOdoo(currencyData);
-                    console.log('[SplashScreen] Currency set from Odoo:', currencyData.name);
+                    console.log('[SplashScreen] Currency loaded from storage:', currencyData.name, currencyData.symbol);
                 } else {
-                    console.log('[SplashScreen] Using default currency (OMR)');
+                    console.log('[SplashScreen] No saved currency, using default');
                 }
             } catch (error) {
-                console.warn('[SplashScreen] Failed to fetch currency from Odoo:', error);
+                console.warn('[SplashScreen] Failed to load currency:', error);
             }
         }
         loadCurrency();

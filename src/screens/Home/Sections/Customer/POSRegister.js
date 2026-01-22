@@ -20,22 +20,12 @@ const POSRegister = ({ navigation }) => {
           fetchPOSRegisters(),
           fetchPOSSessions({ state: 'opened' })
         ]);
-        // Only show the Icecube Factory register(s)
-        const isIcecube = (name) => {
-          if (!name) return false;
-          return /ice\s*cube|icecube/i.test(String(name));
-        };
-
+        // Show all available registers (no filtering)
         const allRegs = Array.isArray(regs) ? regs : [];
-        const filteredRegs = allRegs.filter(r => isIcecube(r.name || r.display_name || r.config_name || ''));
-        setRegisters(filteredRegs);
+        setRegisters(allRegs);
 
         const allSessions = Array.isArray(sessions) ? sessions : [];
-        const filteredSessions = allSessions.filter(s => {
-          const cfgName = s.config_id?.[1] || s.config_id?.[0] || s.name || '';
-          return isIcecube(cfgName);
-        });
-        setOpenSessions(filteredSessions);
+        setOpenSessions(allSessions);
       } catch (err) {
         setError('Failed to load POS registers or sessions');
       } finally {
@@ -176,7 +166,7 @@ const POSRegister = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <NavigationHeader title="Icecube Factory" onBackPress={() => navigation.goBack()} />
+      <NavigationHeader title="POS Registers" onBackPress={() => navigation.goBack()} />
       <View style={styles.centered}>
         <Text style={styles.sectionTitle}>Open Registers</Text>
         {loading ? (

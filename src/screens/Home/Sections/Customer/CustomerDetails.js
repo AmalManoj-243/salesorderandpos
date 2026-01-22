@@ -31,6 +31,15 @@ const CustomerDetails = ({ navigation, route }) => {
     clearProducts
   } = useProductStore();
   const currency = useCurrencyStore((state) => state.currency) || '';
+  const currencySymbol = useCurrencyStore((state) => state.symbol) || '₹';
+  const currencyPosition = useCurrencyStore((state) => state.position) || 'before';
+  const decimalPlaces = useCurrencyStore((state) => state.decimal_places) ?? 2;
+
+  // Helper to format currency
+  const formatCurrency = (amount) => {
+    const formatted = Number(amount || 0).toFixed(decimalPlaces);
+    return currencyPosition === 'before' ? `${currencySymbol}${formatted}` : `${formatted} ${currencySymbol}`;
+  };
 
   // Tax state
   const [taxes, setTaxes] = useState([]);
@@ -260,11 +269,11 @@ const CustomerDetails = ({ navigation, route }) => {
                 onChangeText={(text) => handlePriceChange(item.id, text)}
                 keyboardType="numeric"
               />
-              <Text style={styles.aedLabel}>{currency}</Text>
+              <Text style={styles.aedLabel}>{currencySymbol}</Text>
             </View>
             {taxNames && (
               <Text style={{ fontSize: 12, color: COLORS.primaryThemeColor || '#1316c5', marginTop: 4, fontStyle: 'italic' }}>
-                Tax: {taxNames} (+{lineTax.toFixed(3)})
+                Tax: {taxNames} (+{formatCurrency(lineTax)})
               </Text>
             )}
 {/* Tax button hidden
@@ -568,15 +577,15 @@ const CustomerDetails = ({ navigation, route }) => {
                 <View style={styles.totalPriceContainer}>
                   <View style={styles.footerRow}>
                     <Text style={styles.footerLabel}>Untaxed Amount:</Text>
-                    <Text style={styles.footerLabel}>{untaxedAmount.toFixed(3)} {currency}</Text>
+                    <Text style={styles.footerLabel}>{formatCurrency(untaxedAmount)}</Text>
                   </View>
                   <View style={styles.footerRow}>
                     <Text style={styles.footerLabel}>Taxed Amount:</Text>
-                    <Text style={styles.footerLabel}>{taxedAmount.toFixed(3)} {currency}</Text>
+                    <Text style={styles.footerLabel}>{formatCurrency(taxedAmount)}</Text>
                   </View>
                   <View style={styles.footerRow}>
                     <Text style={styles.totalPriceLabel}>Total Amount:</Text>
-                    <Text style={styles.totalPriceLabel}>{totalAmount.toFixed(3)} {currency}</Text>
+                    <Text style={styles.totalPriceLabel}>{formatCurrency(totalAmount)}</Text>
                   </View>
                 </View>
                 <View style={{ marginTop: 12 }}>
