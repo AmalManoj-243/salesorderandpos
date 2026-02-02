@@ -20,7 +20,6 @@ import { put } from '@api/services/utils';
 import { COLORS } from '@constants/theme';
 
 const VisitsPlanScreen = ({ navigation }) => {
-    const isFocused = useNavigation();
     const currentUserId = useAuthStore(state => state.user?.related_profile?._id);
     const [isVisible, setIsVisible] = useState(false);
     const [date, setDate] = useState(new Date());
@@ -39,12 +38,6 @@ const VisitsPlanScreen = ({ navigation }) => {
             fetchData({ date: formattedDate, employeeId: currentUserId });
         }, [date])
     );
-
-    useEffect(() => {
-        if (isFocused) {
-            fetchData({ date: formattedDate, employeeId: currentUserId });
-        }
-    }, [isFocused, date]);
 
     const handleLoadMore = () => {
         fetchMoreData({ date: formattedDate, employeeId: currentUserId });

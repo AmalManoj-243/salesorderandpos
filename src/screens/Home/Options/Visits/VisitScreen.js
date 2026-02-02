@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useIsFocused, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { formatData } from '@utils/formatters';
 import { RoundedContainer, SafeAreaView } from '@components/containers';
@@ -22,7 +22,6 @@ import { useAuthStore } from '@stores/auth';
 import { VisitList } from '@components/CRM';
 
 const VisitScreen = ({ navigation }) => {
-  const isFocused = useIsFocused();
   const currentUser = useAuthStore((state) => state.user);
   const currentUserId = currentUser?.related_profile?._id || '';
   const [selectedType, setSelectedType] = useState(null);
@@ -53,12 +52,6 @@ const VisitScreen = ({ navigation }) => {
       fetchData({ loginEmployeeId: currentUserId });
     }, [currentUserId])
   );
-
-  useEffect(() => {
-    if (isFocused) {
-      fetchData({ loginEmployeeId: currentUserId });
-    }
-  }, [isFocused]);
 
   useEffect(() => {
     const fetchData = async () => {

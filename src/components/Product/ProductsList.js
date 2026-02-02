@@ -1,20 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { memo } from 'react';
+import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import Text from '@components/Text';
 import { FONT_FAMILY, COLORS } from '@constants/theme';
 import { useCurrencyStore } from '@stores/currency';
 
-const ProductsList = ({ item, onPress, showQuickAdd, onQuickAdd }) => {
-    const errorImage = require('@assets/images/error/error.png');
-    const [imageLoading, setImageLoading] = useState(true);
+const errorImage = require('@assets/images/error/error.png');
 
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            setImageLoading(false);
-        }, 10000);
-        return () => clearTimeout(timeout);
-    }, []);
-
+const ProductsList = memo(({ item, onPress, showQuickAdd, onQuickAdd }) => {
     const truncatedName =
         item?.product_name?.length > 35 ? item?.product_name?.substring(0, 60) + '...' : item?.product_name;
 
@@ -40,12 +32,9 @@ const ProductsList = ({ item, onPress, showQuickAdd, onQuickAdd }) => {
                         <Text style={styles.plusText}>+</Text>
                     </TouchableOpacity>
                 )}
-                {imageLoading && <ActivityIndicator size="small" color={COLORS.primaryThemeColor} style={styles.activityIndicator} />}
                 <Image
                     source={item?.image_url ? { uri: item.image_url } : errorImage}
                     style={styles.image}
-                    onLoad={() => setImageLoading(false)}
-                    onError={() => setImageLoading(false)}
                 />
                 <View style={styles.textContainer}>
                     <Text style={styles.name}>{truncatedName?.trim()}</Text>
@@ -64,7 +53,7 @@ const ProductsList = ({ item, onPress, showQuickAdd, onQuickAdd }) => {
             </View>
         </TouchableOpacity>
     );
-};
+});
 
 export default ProductsList;
 

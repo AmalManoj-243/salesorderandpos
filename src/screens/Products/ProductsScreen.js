@@ -3,8 +3,10 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationHeader } from '@components/Header';
 import { ProductsList } from '@components/Product';
 // ⬇️ CHANGE: use Odoo version instead of old backend
-import { fetchProductsOdoo } from '@api/services/generalApi';
-import { useIsFocused, useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchProductsOdoo, fetchProductDetailsOdoo } from '@api/services/generalApi';
+import { memGet } from '@api/services/memoryCache';
+import { useFocusEffect } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { formatData } from '@utils/formatters';
 import { OverlayLoader } from '@components/Loader';
@@ -25,16 +27,30 @@ const ProductsScreen = ({ navigation, route }) => {
   }, [categoryId]);
   const { fromCustomerDetails } = route.params || {};
 
-  const isFocused = useIsFocused();
   const { addProduct, setCurrentCustomer } = useProductStore();
 
   // ⬇️ CHANGE: hook now uses fetchProductsOdoo
-  const { data, loading, fetchData, fetchMoreData } = useDataFetching(fetchProductsOdoo);
+  const { data, loading, fetchData, fetchMoreData, setData } = useDataFetching(fetchProductsOdoo);
 
   const { searchText, handleSearchTextChange } = useDebouncedSearch(
     (text) => fetchData({ searchText: text, categoryId }),
     500
   );
+
+  // Load cached products instantly on mount — memory first, then AsyncStorage
+  useEffect(() => {
+    const key = categoryId || null;
+    const memCached = memGet(`products_${key}`);
+    if (memCached && memCached.length > 0) {
+      setData(memCached);
+      return;
+    }
+    AsyncStorage.getItem(`cached_products_${key}`).then(cached => {
+      if (cached) {
+        try { setData(JSON.parse(cached)); } catch (e) {}
+      }
+    }).catch(() => {});
+  }, [categoryId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -43,12 +59,6 @@ const ProductsScreen = ({ navigation, route }) => {
       });
     }, [categoryId, searchText])
   );
-
-  useEffect(() => {
-    if (isFocused) {
-      fetchData({ searchText, categoryId });
-    }
-  }, [isFocused, categoryId, searchText]);
 
   // If opened from POS, ensure cart owner is the POS guest so quick-add works
   useEffect(() => {
@@ -83,7 +93,11 @@ const ProductsScreen = ({ navigation, route }) => {
     return (
       <ProductsList
         item={item}
-        onPress={() => navigation.navigate('ProductDetail', { detail: item, fromCustomerDetails, fromPOS: route?.params?.fromPOS })}
+        onPress={() => {
+          // Pre-fetch product details so ProductDetail loads instantly
+          if (item?.id && !item?._id) fetchProductDetailsOdoo(item.id).catch(() => {});
+          navigation.navigate('ProductDetail', { detail: item, fromCustomerDetails, fromPOS: route?.params?.fromPOS });
+        }}
         showQuickAdd={!!route?.params?.fromPOS}
         onQuickAdd={handleQuickAdd}
       />
@@ -133,7 +147,7 @@ const ProductsScreen = ({ navigation, route }) => {
       <RoundedContainer>
         {renderProducts()}
       </RoundedContainer>
-      <OverlayLoader visible={loading} />
+      <OverlayLoader visible={loading && data.length === 0} />
     </SafeAreaView>
   );
 };

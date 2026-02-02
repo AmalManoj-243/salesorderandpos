@@ -4,7 +4,7 @@ import { SafeAreaView } from '@components/containers';
 import { COLORS } from '@constants/theme';
 import { NavigationHeader } from '@components/Header';
 import { Button } from '@components/common/Button';
-import { fetchPaymentJournalsOdoo, createAccountPaymentOdoo, fetchPOSSessions, validatePosOrderOdoo, updatePosOrderOdoo, fetchCustomerAccountPaymentMethod } from '@api/services/generalApi';
+import { fetchPaymentJournalsOdoo, createAccountPaymentOdoo, fetchPOSSessions, validatePosOrderOdoo, updatePosOrderOdoo, fetchCustomerAccountPaymentMethod, fetchCustomersOdoo } from '@api/services/generalApi';
 import { createPosOrderOdoo, createPosPaymentOdoo } from '@api/services/generalApi';
 import axios from 'axios';
 import ODOO_BASE_URL from '@api/config/odooConfig';
@@ -89,6 +89,8 @@ const POSPayment = ({ navigation, route }) => {
   } = route?.params || {};
   const [customer, setCustomer] = useState(initialCustomer);
   const openCustomerSelector = () => {
+    // Pre-fetch customers so CustomerScreen loads instantly
+    fetchCustomersOdoo({ searchText: '' }).catch(() => {});
     navigation.navigate('CustomerScreen', {
       selectMode: true,
       onSelect: (selected) => {

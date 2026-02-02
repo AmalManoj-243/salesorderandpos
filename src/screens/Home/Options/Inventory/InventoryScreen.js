@@ -100,13 +100,6 @@ const InventoryScreen = ({ navigation }) => {
     }, [])
   );
 
-  // Refetch data when screen becomes active
-  useEffect(() => {
-    if (isFocused) {
-      fetchData();
-    }
-  }, [isFocused]);
-
   // Handle load more action for pagination
   const handleLoadMore = () => {
     fetchMoreData();

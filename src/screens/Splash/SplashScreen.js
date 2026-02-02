@@ -8,6 +8,7 @@ import { useAuthStore } from '@stores/auth';
 import Constants from 'expo-constants'
 import { getConfig } from '@utils/config';
 import { useCurrencyStore } from '@stores/currency';
+import { fetchCategoriesOdoo, fetchProductsOdoo } from '@api/services/generalApi';
 
 const SplashScreen = () => {
     const navigation = useNavigation();
@@ -57,7 +58,9 @@ const SplashScreen = () => {
             if (storedUserData) {
                 const userData = JSON.parse(storedUserData);
                 setLoggedInUser(userData);
-                // Reset the navigation stack to prevent going back to the splash screen
+                // Pre-fetch categories and products so screens load instantly
+                fetchCategoriesOdoo().catch(() => {});
+                fetchProductsOdoo({ searchText: '', limit: 50 }).catch(() => {});
                 navigation.reset({
                     index: 0,
                     routes: [{ name: 'AppNavigator' }],
@@ -70,10 +73,7 @@ const SplashScreen = () => {
             }
         }
         if (fontsLoaded) {
-            const timeout = setTimeout(() => {
-                checkUserData()
-            }, 1000);
-            return () => clearTimeout(timeout);
+            checkUserData();
         }
     }, [fontsLoaded, navigation]);
 

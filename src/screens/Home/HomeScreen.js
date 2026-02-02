@@ -19,12 +19,13 @@ import {
 } from "@components/Home";
 import { ListItem } from '@components/Options';
 import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { fetchCategoriesOdoo } from "@api/services/generalApi";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchCategoriesOdoo, fetchProductsOdoo, fetchPOSRegisters, fetchPOSSessions, fetchCustomersOdoo } from "@api/services/generalApi";
 import { RoundedContainer, SafeAreaView } from "@components/containers";
 import { COLORS, FONT_FAMILY } from "@constants/theme";
 import { showToastMessage } from "@components/Toast";
 import { useDataFetching, useLoader } from "@hooks";
-import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from '@stores/auth';
 import { OverlayLoader } from "@components/Loader";
 
@@ -142,8 +143,6 @@ const formatData = (data, numColumns) => {
 
 const HomeScreen = ({ navigation }) => {
   const [backPressCount, setBackPressCount] = useState(0);
-  const isFocused = useIsFocused();
-  
   // Get responsive dimensions
   const { width, height } = useWindowDimensions();
   const isSmallMobile = width < 360;
@@ -151,8 +150,9 @@ const HomeScreen = ({ navigation }) => {
   const isTablet = width >= 600;
   const numColumns = isTablet ? 4 : 3;
   
-  const { data, loading, fetchData, fetchMoreData } =
+  const { data, loading, fetchData, fetchMoreData, setData } =
     useDataFetching(fetchCategoriesOdoo);
+  const [cacheLoaded, setCacheLoaded] = useState(false);
 
   const handleBackPress = useCallback(() => {
     if (navigation.isFocused()) {
@@ -188,17 +188,24 @@ const HomeScreen = ({ navigation }) => {
     }
   }, [backPressCount]);
 
+  // Load cached categories instantly on first mount
+  useEffect(() => {
+    AsyncStorage.getItem('cached_categories').then(cached => {
+      if (cached) {
+        try {
+          setData(JSON.parse(cached));
+          setCacheLoaded(true);
+        } catch (e) {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Fetch fresh data from network on focus
   useFocusEffect(
     useCallback(() => {
       fetchData();
     }, [])
   );
-
-  useEffect(() => {
-    if (isFocused) {
-      fetchData();
-    }
-  }, [isFocused]);
 
   useEffect(() => {
     if (data && Array.isArray(data)) {
@@ -223,10 +230,12 @@ const HomeScreen = ({ navigation }) => {
   }, [authUser]);
 
   const handleCategoryPress = (category) => {
-    console.log('[Home] Selected category:', category);
-    navigation.navigate('Products', { 
-      categoryId: category._id || category.id,
-      categoryName: category.name || category.category_name 
+    const catId = category._id || category.id;
+    // Start fetching products before navigation so they cache while screen transitions
+    fetchProductsOdoo({ categoryId: catId }).catch(() => {});
+    navigation.navigate('Products', {
+      categoryId: catId,
+      categoryName: category.name || category.category_name
     });
   };
 
@@ -245,6 +254,19 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const navigateToScreen = (screenName) => {
+    if (screenName === 'SalesOrderChoice') {
+      fetchCustomersOdoo({ searchText: '' }).catch(() => {});
+    }
+    if (screenName === 'POSRegister') {
+      // Pre-fetch POS data before navigation
+      Promise.all([
+        fetchPOSRegisters(),
+        fetchPOSSessions({ state: 'opened' })
+      ]).then(([regs, sessions]) => {
+        AsyncStorage.setItem('cached_pos_registers', JSON.stringify(regs || [])).catch(() => {});
+        AsyncStorage.setItem('cached_pos_sessions', JSON.stringify(sessions || [])).catch(() => {});
+      }).catch(() => {});
+    }
     navigation.navigate(screenName);
   };
 
@@ -325,7 +347,7 @@ const HomeScreen = ({ navigation }) => {
             onEndReached={handleLoadMore}
             showsVerticalScrollIndicator={false}
             onEndReachedThreshold={0.2}
-            ListFooterComponent={loading && <ActivityIndicator size="large" color={COLORS.primaryThemeColor} />}
+            ListFooterComponent={loading && data.length === 0 && <ActivityIndicator size="large" color={COLORS.primaryThemeColor} />}
             ListEmptyComponent={
               !loading && (
                 <View style={styles.emptyContainer}>

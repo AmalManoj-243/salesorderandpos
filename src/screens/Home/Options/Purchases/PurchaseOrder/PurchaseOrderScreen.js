@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react'
-import { useIsFocused, useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect } from '@react-navigation/native'
 import { FlashList } from '@shopify/flash-list';
 import { formatData } from '@utils/formatters';
 import { RoundedContainer, SafeAreaView, SearchContainer } from '@components/containers';
@@ -13,7 +13,6 @@ import { OverlayLoader } from '@components/Loader';
 
 const PurchaseOrderScreen = ({ navigation }) => {
 
-  const isFocused = useIsFocused();
   const { data, loading, fetchData, fetchMoreData } = useDataFetching(fetchPurchaseOrder);
   const { searchText, handleSearchTextChange } = useDebouncedSearch((text) => fetchData({ searchText: text }));
 
@@ -22,12 +21,6 @@ const PurchaseOrderScreen = ({ navigation }) => {
       fetchData({searchText});
     },[searchText])
   )
-  useEffect(() => {
-    if (isFocused) {
-      fetchData({ searchText });
-    }
-  }, [isFocused, searchText])
-
   const handleLoadMore = () => {
     fetchMoreData({ searchText });
   };

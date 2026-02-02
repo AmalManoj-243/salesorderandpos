@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image
 import { NavigationHeader } from '@components/Header';
 import { useProductStore } from '@stores/product';
 import { COLORS } from '@constants/theme';
-import { createPosOrderOdoo, fetchDiscountsOdoo } from '@api/services/generalApi';
+import { createPosOrderOdoo, fetchDiscountsOdoo, fetchProductsOdoo } from '@api/services/generalApi';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from '@components/containers';
@@ -296,9 +296,6 @@ const TakeoutDelivery = ({ navigation, route }) => {
             <TouchableOpacity style={{ backgroundColor: '#f3f4f6', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, marginRight: 8, marginBottom: 8 }}>
               <Text style={{ fontWeight: '800', color: '#6b21a8' }}>{route?.params?.userName || 'John Doe'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={{ backgroundColor: '#f3f4f6', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, marginRight: 8, marginBottom: 8 }}>
-              <Text style={{ fontWeight: '800', color: '#111' }}>Note</Text>
-            </TouchableOpacity>
             <View style={{ marginRight: 8, marginBottom: 8, alignItems: 'flex-start' }}>
                 {selectedLine ? (
                   <TouchableOpacity onPress={() => setLineDiscountModalVisible(true)} style={{ backgroundColor: '#fef3c7', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#f59e0b' }}>
@@ -310,7 +307,10 @@ const TakeoutDelivery = ({ navigation, route }) => {
                 </TouchableOpacity>
             </View>
             <TouchableOpacity
-              onPress={() => navigation.navigate('POSProducts', { sessionId: route?.params?.sessionId, registerId: route?.params?.registerId })}
+              onPress={() => {
+                fetchProductsOdoo({ searchText: '', limit: 50 }).catch(() => {});
+                navigation.navigate('POSProducts', { sessionId: route?.params?.sessionId, registerId: route?.params?.registerId });
+              }}
               style={{
                 backgroundColor: '#10b981',
                 paddingVertical: 12,

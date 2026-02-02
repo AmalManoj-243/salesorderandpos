@@ -262,6 +262,8 @@ export const fetchPOSSessions = async ({ limit = 20, offset = 0, state = '' } = 
 };
 // api/services/generalApi.js
 import axios from "axios";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { memSet } from './memoryCache';
 import ODOO_BASE_URL from '@api/config/odooConfig';
 
 
@@ -290,9 +292,23 @@ export const fetchProducts = async ({ offset, limit, categoryId, searchText }) =
 
 
 
+// In-flight request deduplication for products
+const _pendingProductRequests = new Map();
+
 // 🔹 NEW: Fetch products directly from Odoo 19 via JSON-RPC
 // Reverted: Fetch products directly from Odoo 19 via JSON-RPC (ice cube shop logic)
-export const fetchProductsOdoo = async ({ offset = 0, limit = 50, searchText = "", categoryId = null } = {}) => {
+export const fetchProductsOdoo = ({ offset = 0, limit = 50, searchText = "", categoryId = null } = {}) => {
+  const dedupeKey = `${categoryId}_${offset}_${searchText}`;
+  if (_pendingProductRequests.has(dedupeKey)) {
+    return _pendingProductRequests.get(dedupeKey);
+  }
+  const promise = _fetchProductsOdooImpl({ offset, limit, searchText, categoryId })
+    .finally(() => _pendingProductRequests.delete(dedupeKey));
+  _pendingProductRequests.set(dedupeKey, promise);
+  return promise;
+};
+
+const _fetchProductsOdooImpl = async ({ offset = 0, limit = 50, searchText = "", categoryId = null } = {}) => {
   try {
     // Build domain for filtering
     let domain = [["available_in_pos", "=", true]]; // Only POS products
@@ -329,7 +345,6 @@ export const fetchProductsOdoo = async ({ offset = 0, limit = 50, searchText = "
               "list_price",
               "qty_available",
               "image_128",
-              "image_1920",
               "categ_id",
               "pos_categ_ids",
               "description_sale",  // Alternative name / Arabic name
@@ -338,7 +353,7 @@ export const fetchProductsOdoo = async ({ offset = 0, limit = 50, searchText = "
               "taxes_id"  // Product sales taxes from Odoo
             ],
             offset,
-            limit,
+            limit: Math.min(limit, 20),
             order: "name asc"
           }
         }
@@ -373,6 +388,12 @@ export const fetchProductsOdoo = async ({ offset = 0, limit = 50, searchText = "
       // Alternative name from description_sale field
       p.alternative_name = p.description_sale || null;
     });
+
+    // Cache initial page of products — memory (instant) + AsyncStorage (persist)
+    if (offset === 0 && !searchText) {
+      memSet(`products_${categoryId}`, results);
+      AsyncStorage.setItem(`cached_products_${categoryId}`, JSON.stringify(results)).catch(() => {});
+    }
 
     return results;
   } catch (error) {
@@ -423,7 +444,7 @@ export const fetchCategoriesOdoo = async ({ offset = 0, limit = 50, searchText =
           kwargs: {
             fields: ["id", "name", "parent_id", "complete_name", "image_128"],
             offset,
-            limit,
+            limit: Math.min(limit, 20),
             order: "name asc",
           },
         },
@@ -441,7 +462,7 @@ export const fetchCategoriesOdoo = async ({ offset = 0, limit = 50, searchText =
 
     // Map the categories into a usable format
     const categories = response.data.result || [];
-    return categories.map(category => {
+    const mapped = categories.map(category => {
       // Build image URL if image_128 exists
       let imageUrl = null;
       if (category.image_128 && category.image_128 !== false) {
@@ -460,6 +481,13 @@ export const fetchCategoriesOdoo = async ({ offset = 0, limit = 50, searchText =
         has_image: imageUrl !== null,
       };
     });
+
+    // Cache the initial page of categories for instant HomeScreen loading
+    if (offset === 0 && !searchText) {
+      AsyncStorage.setItem('cached_categories', JSON.stringify(mapped)).catch(() => {});
+    }
+
+    return mapped;
   } catch (error) {
     console.error("Error fetching product categories from Odoo:", error);
     throw error;
@@ -467,7 +495,19 @@ export const fetchCategoriesOdoo = async ({ offset = 0, limit = 50, searchText =
 };
 
 // Fetch detailed product information for a single Odoo product id
-export const fetchProductDetailsOdoo = async (productId) => {
+const _pendingDetailRequests = new Map();
+
+export const fetchProductDetailsOdoo = (productId) => {
+  if (!productId) return Promise.resolve(null);
+  const key = String(productId);
+  if (_pendingDetailRequests.has(key)) return _pendingDetailRequests.get(key);
+  const promise = _fetchProductDetailsOdooImpl(productId)
+    .finally(() => _pendingDetailRequests.delete(key));
+  _pendingDetailRequests.set(key, promise);
+  return promise;
+};
+
+const _fetchProductDetailsOdooImpl = async (productId) => {
   try {
     if (!productId) return null;
 
@@ -547,6 +587,8 @@ export const fetchProductDetailsOdoo = async (productId) => {
       product_description: p.description_sale || null,
       taxes_id: p.taxes_id || [],  // Product sales taxes from Odoo
     };
+    memSet(`product_detail_${productId}`, result);
+    return result;
   } catch (error) {
     console.error('fetchProductDetailsOdoo error:', error);
     throw error;
@@ -648,7 +690,7 @@ const response = await axios.post(
     const partners = response.data.result || [];
 
     // 🔙 Shape result for your CustomerScreen
-    return partners.map((p) => ({
+    const results = partners.map((p) => ({
       id: p.id,
       name: p.name || "",
       email: p.email || "",
@@ -661,6 +703,14 @@ const response = await axios.post(
         p.country_id && Array.isArray(p.country_id) ? p.country_id[1] : ""
       ].filter(Boolean).join(", "),
     }));
+
+    // Cache initial page for instant loading
+    if (offset === 0 && !searchText) {
+      memSet('customers', results);
+      AsyncStorage.setItem('cached_customers', JSON.stringify(results)).catch(() => {});
+    }
+
+    return results;
   } catch (error) {
     console.error("fetchCustomersOdoo error:", error);
     throw error;
@@ -1140,21 +1190,14 @@ export const createInvoiceOdoo = async ({ partnerId, products = [], journalId = 
         name: p.name || p.product_name || '',
         quantity,
         price_unit,
+        // Explicitly clear taxes to prevent Odoo from using product defaults
+        // that may be incompatible with the company's fiscal country
+        tax_ids: [[5, 0, 0]],
       };
-      // taxes: if provided as array of ids
-      if (p.tax_ids && Array.isArray(p.tax_ids) && p.tax_ids.length) {
-        vals.tax_ids = [[6, 0, p.tax_ids]];
-        // For diagnosis, log tax_ids
-        console.log(`[INVOICE LINE] Product ${p.id} tax_ids:`, p.tax_ids);
-      }
       // For diagnosis, log price and quantity
       console.log(`[INVOICE LINE] Product ${p.id} price_unit:`, price_unit, 'quantity:', quantity);
       totalUntaxed += price_unit * quantity;
-      // Note: Odoo will compute tax, but log if tax_ids present
-      if (p.tax_ids && Array.isArray(p.tax_ids) && p.tax_ids.length) {
-        // This is a placeholder; actual tax calculation is done by Odoo
-        totalTax += 0; // You may add your own calculation if needed
-      }
+      // Odoo will compute taxes server-side
       return [0, 0, vals];
     });
 

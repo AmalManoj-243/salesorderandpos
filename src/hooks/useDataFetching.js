@@ -1,34 +1,56 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import useLoader from './useLoader';
 
 const useDataFetching = (fetchDataCallback) => {
   const [data, setData] = useState([]);
-  const [loading, startLoading, stopLoading] = useLoader(false);
+  const [showLoading, setShowLoading] = useState(false);
   const [allDataLoaded, setAllDataLoaded] = useState(false);
-  // offset is the item offset (number of items to skip)
   const [offset, setOffset] = useState(0);
+  const hasData = useRef(false);
+  const isFetching = useRef(false);
+  const loadingTimer = useRef(null);
+
+  // Delayed loading — only show spinner after 400ms, skip it if data arrives fast
+  const startDelayedLoading = useCallback(() => {
+    if (loadingTimer.current) clearTimeout(loadingTimer.current);
+    loadingTimer.current = setTimeout(() => setShowLoading(true), 400);
+  }, []);
+
+  const stopDelayedLoading = useCallback(() => {
+    if (loadingTimer.current) clearTimeout(loadingTimer.current);
+    loadingTimer.current = null;
+    setShowLoading(false);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (loadingTimer.current) clearTimeout(loadingTimer.current); };
+  }, []);
 
   const fetchData = useCallback(async (newFilters = {}) => {
-    startLoading();
+    // Only show spinner if we have no data yet
+    if (!hasData.current) startDelayedLoading();
+    isFetching.current = true;
     try {
       const limit = newFilters.limit ?? 50;
-      // fresh fetch: start at item offset 0
       const params = { offset: 0, limit, ...newFilters };
       const fetchedData = await fetchDataCallback(params);
       const list = fetchedData || [];
       setData(list);
+      hasData.current = list.length > 0;
       setAllDataLoaded(list.length < limit);
       setOffset(0);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
-      stopLoading();
+      isFetching.current = false;
+      stopDelayedLoading();
     }
-  }, [fetchDataCallback, startLoading, stopLoading]);
+  }, [fetchDataCallback, startDelayedLoading, stopDelayedLoading]);
 
   const fetchMoreData = async (newFilters = {}) => {
-    if (loading || allDataLoaded) return;
-    startLoading();
+    if (isFetching.current || allDataLoaded) return;
+    isFetching.current = true;
+    startDelayedLoading();
     try {
       const limit = newFilters.limit ?? 50;
       const nextOffset = offset + limit;
@@ -45,13 +67,18 @@ const useDataFetching = (fetchDataCallback) => {
     } catch (error) {
       console.error('Error fetching more data:', error);
     } finally {
-      stopLoading();
+      isFetching.current = false;
+      stopDelayedLoading();
     }
   };
 
-  return { data, loading, fetchData, fetchMoreData };
+  const setDataWithTracking = useCallback((newData) => {
+    const list = typeof newData === 'function' ? newData(data) : newData;
+    if (list && list.length > 0) hasData.current = true;
+    setData(newData);
+  }, [data]);
+
+  return { data, loading: showLoading, fetchData, fetchMoreData, setData: setDataWithTracking };
 };
 
 export default useDataFetching;
-
-

@@ -1,12 +1,13 @@
 import React, { useEffect, useCallback } from 'react';
-import { useIsFocused, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { formatData } from '@utils/formatters';
 import { RoundedContainer, SafeAreaView, SearchContainer } from '@components/containers';
 import { EmptyItem, EmptyState } from '@components/common/empty';
 import { NavigationHeader } from '@components/Header';
-// 🔹 changed this line
-import { fetchCustomersOdoo } from '@api/services/generalApi';
+import { fetchCustomersOdoo, fetchProductsOdoo } from '@api/services/generalApi';
+import { memGet } from '@api/services/memoryCache';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useDataFetching, useDebouncedSearch } from '@hooks';
 import Text from '@components/Text';
@@ -15,8 +16,21 @@ import { COLORS, FONT_FAMILY } from '@constants/theme';
 import { Button, FABButton } from '@components/common/Button';
 
 const CustomerScreen = ({ navigation, route }) => {
-  const isFocused = useIsFocused();
-  const { data, loading, fetchData, fetchMoreData } = useDataFetching(fetchCustomersOdoo);
+  const { data, loading, fetchData, fetchMoreData, setData } = useDataFetching(fetchCustomersOdoo);
+
+  // Load cached customers instantly on mount
+  useEffect(() => {
+    const memCached = memGet('customers');
+    if (memCached && memCached.length > 0) {
+      setData(memCached);
+      return;
+    }
+    AsyncStorage.getItem('cached_customers').then(cached => {
+      if (cached) {
+        try { setData(JSON.parse(cached)); } catch (e) {}
+      }
+    }).catch(() => {});
+  }, []);
 
   const { searchText, handleSearchTextChange } = useDebouncedSearch(
     (text) => fetchData({ searchText: text }),
@@ -28,12 +42,6 @@ const CustomerScreen = ({ navigation, route }) => {
       fetchData({ searchText });
     }, [searchText])
   );
-
-  useEffect(() => {
-    if (isFocused) {
-      fetchData({ searchText });
-    }
-  }, [isFocused, searchText]);
 
   const handleLoadMore = () => {
     fetchMoreData({ searchText });
@@ -53,6 +61,8 @@ const CustomerScreen = ({ navigation, route }) => {
             navigation.goBack();
             return;
           }
+          // Pre-fetch products so they load instantly when user taps "Add Products"
+          fetchProductsOdoo({ searchText: '', limit: 50 }).catch(() => {});
           navigation.navigate('CustomerDetails', { details: item });
         }}
       >

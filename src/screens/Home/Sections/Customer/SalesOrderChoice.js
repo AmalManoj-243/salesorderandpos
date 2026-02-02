@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from '@components/containers';
 import { NavigationHeader } from '@components/Header';
 import { Button } from '@components/common/Button';
+import { fetchCustomersOdoo } from '@api/services/generalApi';
 
 const SalesOrderChoice = ({ navigation }) => {
   return (
@@ -13,7 +14,10 @@ const SalesOrderChoice = ({ navigation }) => {
         {/* Removed subtitle as requested */}
 
         <View style={styles.buttons}>
-          <TouchableOpacity style={[styles.option, styles.placeOrder]} onPress={() => navigation.navigate('CustomerScreen')}>
+          <TouchableOpacity style={[styles.option, styles.placeOrder]} onPress={() => {
+            fetchCustomersOdoo({ searchText: '' }).catch(() => {});
+            navigation.navigate('CustomerScreen');
+          }}>
             <Text style={styles.optionTitle}>Place Order</Text>
             <Text style={styles.optionSub}>Choose a customer and create a sales order</Text>
           </TouchableOpacity>

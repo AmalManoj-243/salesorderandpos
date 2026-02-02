@@ -6,6 +6,7 @@ import { NavigationHeader } from '@components/Header';
 import { COLORS, FONT_FAMILY } from '@constants/theme';
 import { fetchInventoryDetailsByName, fetchProductDetails } from '@api/details/detailApi';
 import { fetchProductDetailsOdoo } from '@api/services/generalApi';
+import { memGet } from '@api/services/memoryCache';
 import { showToastMessage } from '@components/Toast';
 import { useAuthStore } from '@stores/auth';
 import { OverlayLoader } from '@components/Loader';
@@ -99,11 +100,13 @@ const ProductDetail = ({ navigation, route }) => {
   // 🔹 Initialise `details` depending on source (Odoo vs existing backend)
   useEffect(() => {
     if (isOdooProduct) {
-      // Coming from Odoo JSON-RPC list — fetch richer details and inventory
+      // Coming from Odoo JSON-RPC list — check memory cache first, then fetch
       const loadOdooDetails = async () => {
-        setLoading(true);
+        // Try memory cache for instant load (pre-fetched on product tap)
+        const cached = memGet(`product_detail_${detail.id}`);
+        if (!cached) setLoading(true);
         try {
-          const od = await fetchProductDetailsOdoo(detail.id);
+          const od = cached || await fetchProductDetailsOdoo(detail.id);
           setDetails({
             ...detail,
             id: detail.id,

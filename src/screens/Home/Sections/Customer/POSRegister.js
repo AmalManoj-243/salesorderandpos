@@ -1,38 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, FlatList, ActivityIndicator, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from '@components/containers';
 import { NavigationHeader } from '@components/Header';
 import { Button } from '@components/common/Button';
-import { fetchPOSRegisters, fetchPOSSessions, createPOSSesionOdoo, closePOSSesionOdoo } from '@api/services/generalApi';
+import { fetchPOSRegisters, fetchPOSSessions, createPOSSesionOdoo, closePOSSesionOdoo, fetchProductsOdoo } from '@api/services/generalApi';
 
 const POSRegister = ({ navigation }) => {
   const [registers, setRegisters] = useState([]);
   const [openSessions, setOpenSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const loadingTimer = useRef(null);
 
   useEffect(() => {
+    // Load cached data instantly
+    Promise.all([
+      AsyncStorage.getItem('cached_pos_registers'),
+      AsyncStorage.getItem('cached_pos_sessions'),
+    ]).then(([cachedRegs, cachedSessions]) => {
+      if (cachedRegs) try { setRegisters(JSON.parse(cachedRegs)); } catch (e) {}
+      if (cachedSessions) try { setOpenSessions(JSON.parse(cachedSessions)); } catch (e) {}
+    }).catch(() => {});
+
+    // Fetch fresh data — delayed spinner (only if takes >400ms)
     const loadRegistersAndSessions = async () => {
-      setLoading(true);
       setError(null);
+      loadingTimer.current = setTimeout(() => setLoading(true), 400);
       try {
         const [regs, sessions] = await Promise.all([
           fetchPOSRegisters(),
           fetchPOSSessions({ state: 'opened' })
         ]);
-        // Show all available registers (no filtering)
         const allRegs = Array.isArray(regs) ? regs : [];
         setRegisters(allRegs);
+        AsyncStorage.setItem('cached_pos_registers', JSON.stringify(allRegs)).catch(() => {});
 
         const allSessions = Array.isArray(sessions) ? sessions : [];
         setOpenSessions(allSessions);
+        AsyncStorage.setItem('cached_pos_sessions', JSON.stringify(allSessions)).catch(() => {});
       } catch (err) {
         setError('Failed to load POS registers or sessions');
       } finally {
+        if (loadingTimer.current) clearTimeout(loadingTimer.current);
         setLoading(false);
       }
     };
     loadRegistersAndSessions();
+
+    return () => { if (loadingTimer.current) clearTimeout(loadingTimer.current); };
   }, []);
 
   const handleOpenRegisterSession = async (register) => {
@@ -88,6 +104,8 @@ const POSRegister = ({ navigation }) => {
   };
 
   const handleContinueSelling = (session) => {
+    // Pre-fetch products so POSProducts loads instantly when user taps "Add Products"
+    fetchProductsOdoo({ searchText: '', limit: 50 }).catch(() => {});
     navigation.navigate('TakeoutDelivery', {
       sessionId: session.id,
       registerId: session.config_id?.[0],
@@ -169,9 +187,9 @@ const POSRegister = ({ navigation }) => {
       <NavigationHeader title="POS Registers" onBackPress={() => navigation.goBack()} />
       <View style={styles.centered}>
         <Text style={styles.sectionTitle}>Open Registers</Text>
-        {loading ? (
+        {loading && openSessions.length === 0 ? (
           <ActivityIndicator size="large" color="#2b6cb0" style={{ marginVertical: 16 }} />
-        ) : error ? (
+        ) : error && openSessions.length === 0 ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : (
           <FlatList

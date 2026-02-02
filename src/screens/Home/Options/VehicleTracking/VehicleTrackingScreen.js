@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useIsFocused, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from '@components/containers';
 import { NavigationHeader } from '@components/Header';
 import { RoundedScrollContainer } from '@components/containers';
@@ -13,7 +13,6 @@ import CalendarScreen from '@components/Calendar/CalendarScreen';
 import { vehicleTrackingStyles as styles } from './styles';
 
 const VehicleTrackingScreen = ({ navigation }) => {
-  const isFocused = useIsFocused();
   const { data, loading, fetchData, fetchMoreData } = useDataFetching(fetchVehicles);
   const [selectedDate, setSelectedDate] = useState(null);
   const [vehicleEntries, setVehicleEntries] = useState([]);
@@ -23,12 +22,6 @@ const VehicleTrackingScreen = ({ navigation }) => {
       fetchData();
     }, [])
   );
-
-  useEffect(() => {
-    if (isFocused) {
-      fetchData();
-    }
-  }, [isFocused]);
 
   const handleDateSelect = (day) => {
     setSelectedDate(day.dateString);

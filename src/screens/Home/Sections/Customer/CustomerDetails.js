@@ -15,7 +15,7 @@ import styles from './styles';
 import { format } from 'date-fns';
 import { useAuthStore } from '@stores/auth';
 import { post } from '@api/services/utils';
-import { fetchCustomerDetailsOdoo, createInvoiceOdoo, createSaleOrderOdoo, confirmSaleOrderOdoo, fetchTaxesOdoo } from '@api/services/generalApi';
+import { fetchCustomerDetailsOdoo, createInvoiceOdoo, createSaleOrderOdoo, confirmSaleOrderOdoo, fetchTaxesOdoo, fetchProductsOdoo } from '@api/services/generalApi';
 import Toast from 'react-native-toast-message';
 import { useCurrencyStore } from '@stores/currency';
 
@@ -558,7 +558,10 @@ const CustomerDetails = ({ navigation, route }) => {
           width="50%"
           alignSelf="flex-end"
           marginTop={10}
-          onPress={() => navigation.navigate('Products', { fromCustomerDetails: details })}
+          onPress={() => {
+            fetchProductsOdoo({ searchText: '', limit: 50 }).catch(() => {});
+            navigation.navigate('Products', { fromCustomerDetails: details });
+          }}
         />
         {products.length === 0 ? (
           <EmptyState imageSource={require('@assets/images/EmptyData/empty_cart.png')} message="Items are empty" />
